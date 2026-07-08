@@ -5,40 +5,139 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Paper Voice Agent</title>
 <style>
-  :root { color-scheme: light dark; }
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --surface: #ffffff;
+    --text: #1a1d21;
+    --text-dim: #6b7280;
+    --border: #e4e6ea;
+    --accent: #23272f;
+    --accent-text: #ffffff;
+    --danger: #c4302b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1013;
+      --surface: #16191d;
+      --text: #e8eaed;
+      --text-dim: #8b929c;
+      --border: #262a30;
+      --accent: #e8eaed;
+      --accent-text: #16191d;
+    }
+  }
   * { box-sizing: border-box; margin: 0; }
   body {
-    font-family: -apple-system, system-ui, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
     display: flex; flex-direction: column; height: 100dvh;
-    background: light-dark(#f6f7f9, #101418); color: light-dark(#1b1f24, #e8eaed);
+    background: var(--bg); color: var(--text);
   }
-  header { padding: 14px 18px; font-weight: 600; border-bottom: 1px solid light-dark(#e3e6ea, #2a3038); }
-  header small { display: block; font-weight: 400; opacity: .6; font-size: 12px; }
-  #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-  .msg { max-width: 82%; padding: 10px 14px; border-radius: 16px; line-height: 1.4; white-space: pre-wrap; }
-  .user { align-self: flex-end; background: #2f6fed; color: #fff; border-bottom-right-radius: 4px; }
-  .bot { align-self: flex-start; background: light-dark(#fff, #1d232b); border: 1px solid light-dark(#e3e6ea, #2a3038); border-bottom-left-radius: 4px; }
-  .thinking { opacity: .55; font-style: italic; }
-  form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid light-dark(#e3e6ea, #2a3038); padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 18px; background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--accent); color: var(--accent-text);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .mark svg { width: 16px; height: 16px; }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  header p { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+  #chat { flex: 1; overflow-y: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg {
+    max-width: 84%; padding: 10px 14px; border-radius: 14px;
+    line-height: 1.5; white-space: pre-wrap; overflow-wrap: break-word;
+  }
+  .user {
+    align-self: flex-end;
+    background: var(--accent); color: var(--accent-text);
+    border-bottom-right-radius: 5px;
+  }
+  .bot {
+    align-self: flex-start;
+    background: var(--surface); border: 1px solid var(--border);
+    border-bottom-left-radius: 5px;
+  }
+  .dots { display: inline-flex; gap: 4px; padding: 4px 0; }
+  .dots span {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim);
+    animation: blink 1.2s infinite;
+  }
+  .dots span:nth-child(2) { animation-delay: .2s; }
+  .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
+  form {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+    background: var(--surface); border-top: 1px solid var(--border);
+  }
   input {
-    flex: 1; padding: 12px 16px; font-size: 16px; border-radius: 22px;
-    border: 1px solid light-dark(#d4d8dd, #3a414b); background: light-dark(#fff, #1d232b); color: inherit; outline: none;
+    flex: 1; min-width: 0; padding: 11px 16px; font-size: 16px;
+    border-radius: 22px; border: 1px solid var(--border);
+    background: var(--bg); color: inherit; outline: none;
+    transition: border-color .15s;
   }
+  input:focus { border-color: var(--text-dim); }
   button {
-    width: 46px; height: 46px; border-radius: 50%; border: none; font-size: 19px;
-    background: #2f6fed; color: #fff; cursor: pointer; flex-shrink: 0;
+    width: 42px; height: 42px; border-radius: 50%; border: none;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent); color: var(--accent-text);
+    cursor: pointer; flex-shrink: 0; transition: opacity .15s, background .2s;
   }
-  #mic.recording { background: #d93025; animation: pulse 1.2s infinite; }
-  @keyframes pulse { 50% { transform: scale(1.12); } }
+  button:active { opacity: .75; }
+  button svg { width: 18px; height: 18px; }
+  #mic { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
+  #mic.recording { background: var(--danger); border-color: var(--danger); color: #fff; }
+  #mic.recording .icon-mic { display: none; }
+  #mic .icon-stop { display: none; }
+  #mic.recording .icon-stop { display: block; }
+  .voice {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border);
+  }
+  .voice button { width: 32px; height: 32px; }
+  .voice button svg { width: 13px; height: 13px; }
+  .voice canvas { flex: 1; height: 32px; min-width: 0; }
+  .voice .time { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
-<header>Paper Voice Agent<small>Ask about scientific papers, by text or voice</small></header>
+<header>
+  <div class="mark">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+      <line x1="4" y1="10" x2="4" y2="14"/><line x1="9" y1="7" x2="9" y2="17"/>
+      <line x1="14" y1="4" x2="14" y2="20"/><line x1="19" y1="9" x2="19" y2="15"/>
+    </svg>
+  </div>
+  <div>
+    <h1>Paper Voice Agent</h1>
+    <p>Ask about scientific papers, by text or voice</p>
+  </div>
+</header>
 <div id="chat"></div>
 <form id="form">
-  <input id="text" placeholder="Ask a question..." autocomplete="off">
-  <button type="submit" title="Send">&#10148;</button>
-  <button type="button" id="mic" title="Hold to talk / tap to toggle">&#127908;</button>
+  <input id="text" placeholder="Ask a question" autocomplete="off">
+  <button type="button" id="mic" title="Record a voice question" aria-label="Record a voice question">
+    <svg class="icon-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+    </svg>
+    <svg class="icon-stop" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="6" width="12" height="12" rx="2"/>
+    </svg>
+  </button>
+  <button type="submit" title="Send" aria-label="Send">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="19" x2="12" y2="5"/>
+      <polyline points="5 12 12 5 19 12"/>
+    </svg>
+  </button>
 </form>
 <script>
 const chat = document.getElementById("chat");
@@ -49,23 +148,99 @@ const micBtn = document.getElementById("mic");
 function add(cls, content) {
   const div = document.createElement("div");
   div.className = "msg " + cls;
-  div.textContent = content;
+  if (content === null) {
+    div.innerHTML = '<span class="dots"><span></span><span></span><span></span></span>';
+  } else {
+    div.textContent = content;
+  }
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
   return div;
 }
 
 async function send(body) {
-  const thinking = add("bot thinking", "Thinking...");
+  const pending = add("bot", null);
   try {
     const resp = await fetch("/chat", { method: "POST", body });
     const data = await resp.json();
-    thinking.classList.remove("thinking");
-    thinking.textContent = data.text || data.error || "Something went wrong.";
-    if (data.audio_wav_base64) new Audio("data:audio/wav;base64," + data.audio_wav_base64).play();
+    pending.textContent = data.text || data.error || "Something went wrong.";
+    if (data.audio_wav_base64) attachVoiceBar(pending, data.audio_wav_base64);
   } catch (e) {
-    thinking.textContent = "Request failed: " + e;
+    pending.textContent = "Request failed: " + e;
   }
+  chat.scrollTop = chat.scrollHeight;
+}
+
+const PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
+const PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></svg>';
+
+function fmt(s) {
+  s = Math.max(0, Math.round(s));
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+
+async function attachVoiceBar(bubble, b64) {
+  const bar = document.createElement("div");
+  bar.className = "voice";
+  bar.innerHTML = '<button type="button" aria-label="Play">' + PLAY_SVG +
+    '</button><canvas></canvas><span class="time"></span>';
+  bubble.appendChild(bar);
+
+  const btn = bar.querySelector("button");
+  const canvas = bar.querySelector("canvas");
+  const timeEl = bar.querySelector(".time");
+  const audio = new Audio("data:audio/wav;base64," + b64);
+
+  // Decode once to draw the waveform
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const buf = await ctx.decodeAudioData(bytes.buffer);
+  ctx.close();
+  const raw = buf.getChannelData(0);
+  const BARS = 44;
+  const step = Math.floor(raw.length / BARS);
+  const peaks = Array.from({ length: BARS }, (_, i) => {
+    let max = 0;
+    for (let j = i * step; j < (i + 1) * step; j += 24) max = Math.max(max, Math.abs(raw[j]));
+    return max;
+  });
+  const peakMax = Math.max(...peaks, 0.01);
+  timeEl.textContent = fmt(buf.duration);
+
+  function draw(progress) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    const g = canvas.getContext("2d");
+    g.scale(dpr, dpr);
+    const css = getComputedStyle(document.documentElement);
+    const played = css.getPropertyValue("--text").trim();
+    const rest = css.getPropertyValue("--border").trim();
+    const bw = w / BARS;
+    for (let i = 0; i < BARS; i++) {
+      const bh = Math.max(3, (peaks[i] / peakMax) * (h - 6));
+      g.fillStyle = i / BARS <= progress ? played : rest;
+      g.beginPath();
+      g.roundRect(i * bw + bw * 0.18, (h - bh) / 2, bw * 0.64, bh, 2);
+      g.fill();
+    }
+  }
+  draw(0);
+
+  audio.addEventListener("timeupdate", () => {
+    draw(audio.currentTime / (audio.duration || buf.duration));
+    timeEl.textContent = fmt((audio.duration || buf.duration) - audio.currentTime);
+  });
+  audio.addEventListener("ended", () => {
+    btn.innerHTML = PLAY_SVG;
+    timeEl.textContent = fmt(buf.duration);
+    draw(0);
+  });
+  audio.addEventListener("play", () => { btn.innerHTML = PAUSE_SVG; });
+  audio.addEventListener("pause", () => { btn.innerHTML = PLAY_SVG; });
+  btn.addEventListener("click", () => { audio.paused ? audio.play() : audio.pause(); });
+
+  audio.play().catch(() => {});  // autoplay may be blocked before first interaction
 }
 
 form.addEventListener("submit", (e) => {
@@ -90,7 +265,7 @@ micBtn.addEventListener("click", async () => {
     stream.getTracks().forEach((t) => t.stop());
     micBtn.classList.remove("recording");
     const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-    add("user", "\u{1F3A4} (voice message)");
+    add("user", "Voice message");
     const fd = new FormData();
     fd.append("audio", blob, "question.webm");
     send(fd);
