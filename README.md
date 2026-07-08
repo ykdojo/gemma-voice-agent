@@ -40,6 +40,10 @@ model-agnostic, so swapping between Gemini and self-hosted Gemma is a one-line m
 change, which is exactly the plan here. And if this grows to need evaluations or observability,
 ADK has a convenient path forward for both.
 
+## Demo
+
+https://github.com/ykdojo/gemma-voice-agent/raw/main/docs/demo.mov
+
 ## What it looks like
 
 <img src="docs/ui-chat.png" width="380" alt="Chat UI: a multi-turn conversation about the discovery of REM sleep, each reply with a voice playback bar and waveform">
