@@ -3,6 +3,7 @@ import base64
 import os
 import re
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, jsonify, request, send_from_directory
 
@@ -38,11 +39,19 @@ def chat():
 
         transcription = None
         if audio:
-            transcription = model.transcribe(audio, audio_mime)
-            text = transcription
-            audio = None  # history stays text-only; the transcription is what the agent sees
-
-        answer = model.reply(text=text, audio=audio, audio_mime=audio_mime, session_id=session_id)
+            # The agent hears the audio natively; transcription runs in parallel, for display only
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                t_future = pool.submit(model.transcribe, audio, audio_mime)
+                a_future = pool.submit(
+                    model.reply, text=text, audio=audio, audio_mime=audio_mime, session_id=session_id
+                )
+                answer = a_future.result()
+                try:
+                    transcription = t_future.result()
+                except Exception:  # noqa: BLE001 - display-only, never fail the answer
+                    traceback.print_exc()
+        else:
+            answer = model.reply(text=text, session_id=session_id)
 
         # Speech is fetched separately via /speak so the text lands as soon as it is ready
         return jsonify({
