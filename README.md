@@ -9,7 +9,10 @@ open-weights models. **Your data, your infra, your control.**
 > a self-hosted model, the brain/ears are **Gemini via Vertex AI** for now, behind a swappable
 > interface ([`app/model.py`](app/model.py)). As soon as quota lands, it gets replaced with
 > **self-hosted Gemma 4 on a Cloud Run L4 GPU**, restoring the fully-private design described
-> here. Everything else (chat UI, paper tools, Kokoro voice) already works as designed.
+> here. The voice is interim too: Kokoro on CPU synthesizes at roughly real-time speed (too slow
+> without the GPU), so replies are currently spoken via **Cloud Text-to-Speech** behind a
+> switchable TTS backend, and Kokoro comes back as the self-hosted mouth on the GPU. Everything
+> else (chat UI, paper tools) already works as designed.
 
 The knowledge base in this demo is scientific papers, standing in for whatever *your* private data
 source is: an internal database, docs, or search engine.

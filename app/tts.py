@@ -1,28 +1,34 @@
-"""Voice out: Kokoro (82M, open weights) on CPU. Text in, WAV bytes out."""
+"""Voice out: text in, WAV bytes out. Two switchable backends:
+
+- kokoro (default): Kokoro 82M, open weights, self-hosted. The mouth in the fully-private
+  design. Roughly real-time on CPU, many times faster once this service runs on a GPU.
+- cloudtts: Google Cloud Text-to-Speech. Interim option while this service is CPU-only,
+  because synthesis returns in a second or two. Hosted, so not part of the private design.
+
+Select with TTS_BACKEND=kokoro|cloudtts.
+"""
 import io
 import os
 import wave
 
 import numpy as np
 
-_pipeline = None
-VOICE = os.environ.get("KOKORO_VOICE", "af_heart")
+BACKEND = os.environ.get("TTS_BACKEND", "kokoro")
 SAMPLE_RATE = 24000
 
+_kokoro = None
+_cloud_client = None
 
-def _get_pipeline():
-    global _pipeline
-    if _pipeline is None:
+
+def _kokoro_synthesize(text: str) -> bytes:
+    global _kokoro
+    if _kokoro is None:
         from kokoro import KPipeline
 
-        _pipeline = KPipeline(lang_code="a")  # American English
-    return _pipeline
-
-
-def synthesize(text: str) -> bytes:
-    """Render text to a mono 24kHz 16-bit WAV."""
+        _kokoro = KPipeline(lang_code="a")  # American English
+    voice = os.environ.get("KOKORO_VOICE", "af_heart")
     chunks = []
-    for _, _, audio in _get_pipeline()(text, voice=VOICE):
+    for _, _, audio in _kokoro(text, voice=voice):
         chunks.append(audio.numpy() if hasattr(audio, "numpy") else np.asarray(audio))
     samples = np.concatenate(chunks) if chunks else np.zeros(1, dtype=np.float32)
     pcm = (np.clip(samples, -1.0, 1.0) * 32767).astype("<i2")
@@ -34,3 +40,30 @@ def synthesize(text: str) -> bytes:
         w.setframerate(SAMPLE_RATE)
         w.writeframes(pcm.tobytes())
     return buf.getvalue()
+
+
+def _cloudtts_synthesize(text: str) -> bytes:
+    global _cloud_client
+    from google.cloud import texttospeech
+
+    if _cloud_client is None:
+        _cloud_client = texttospeech.TextToSpeechClient()
+    voice_name = os.environ.get("CLOUDTTS_VOICE", "en-US-Chirp3-HD-Aoede")
+    response = _cloud_client.synthesize_speech(
+        input=texttospeech.SynthesisInput(text=text),
+        voice=texttospeech.VoiceSelectionParams(
+            language_code="-".join(voice_name.split("-")[:2]), name=voice_name
+        ),
+        audio_config=texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.LINEAR16,
+            sample_rate_hertz=SAMPLE_RATE,
+        ),
+    )
+    return response.audio_content  # LINEAR16 comes back as a WAV container
+
+
+def synthesize(text: str) -> bytes:
+    """Render text to a mono 24kHz 16-bit WAV using the configured backend."""
+    if BACKEND == "cloudtts":
+        return _cloudtts_synthesize(text)
+    return _kokoro_synthesize(text)
