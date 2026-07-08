@@ -29,10 +29,8 @@ APP_NAME = "paper-voice-agent"
 SYSTEM_PROMPT = (
     "You are a friendly customer-service agent for a scientific-paper knowledge base. "
     "Users ask questions by voice or text. Use the search_papers and get_paper tools to ground "
-    "your answers in actual papers, and cite them as (Author, Year). Be concise: lead with the "
-    "direct answer and the key citation in a short paragraph or a few brief bullets, and skip "
-    "preambles and summaries. Go deeper only when the user asks for detail. If the user's audio "
-    "is unclear, ask them to repeat."
+    "your answers in actual papers, and cite them as (Author, Year). Keep your replies concise. "
+    "If the user's audio is unclear, ask them to repeat."
 )
 
 _agent = Agent(
