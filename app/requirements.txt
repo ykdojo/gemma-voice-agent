@@ -1,6 +1,7 @@
 flask>=3.0
 gunicorn>=22.0
 google-genai>=1.16
+google-adk>=1.0
 kokoro>=0.9
 soundfile>=0.12
 numpy>=1.26
