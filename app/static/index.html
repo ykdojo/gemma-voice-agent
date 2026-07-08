@@ -144,6 +144,7 @@ const chat = document.getElementById("chat");
 const form = document.getElementById("form");
 const textEl = document.getElementById("text");
 const micBtn = document.getElementById("mic");
+const SESSION_ID = sessionStorage.sid || (sessionStorage.sid = crypto.randomUUID());
 
 function add(cls, content) {
   const div = document.createElement("div");
@@ -291,6 +292,7 @@ form.addEventListener("submit", (e) => {
   add("user", q);
   const fd = new FormData();
   fd.append("text", q);
+  fd.append("session_id", SESSION_ID);
   send(fd);
 });
 
@@ -308,6 +310,7 @@ micBtn.addEventListener("click", async () => {
     add("user", "Voice message");
     const fd = new FormData();
     fd.append("audio", blob, "question.webm");
+    fd.append("session_id", SESSION_ID);
     send(fd);
   };
   recorder.start();

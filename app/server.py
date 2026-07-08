@@ -23,16 +23,20 @@ def chat():
         text = None
         audio = None
         audio_mime = "audio/webm"
+        session_id = "default"
         if request.content_type and request.content_type.startswith("multipart/form-data"):
             f = request.files.get("audio")
             if f:
                 audio = f.read()
                 audio_mime = f.mimetype or audio_mime
             text = request.form.get("text") or None
+            session_id = request.form.get("session_id") or session_id
         else:
-            text = (request.get_json(silent=True) or {}).get("text")
+            body = request.get_json(silent=True) or {}
+            text = body.get("text")
+            session_id = body.get("session_id") or session_id
 
-        answer = model.reply(text=text, audio=audio, audio_mime=audio_mime)
+        answer = model.reply(text=text, audio=audio, audio_mime=audio_mime, session_id=session_id)
 
         # Speech is fetched separately via /speak so the text lands as soon as it is ready
         return jsonify({"text": answer, "speech_available": os.environ.get("DISABLE_TTS") != "1"})
