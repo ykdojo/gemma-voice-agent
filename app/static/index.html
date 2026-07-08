@@ -190,8 +190,11 @@ async function send(body) {
 async function requestSpeech(bubble, text) {
   const bar = document.createElement("div");
   bar.className = "voice";
-  bar.innerHTML = '<span class="dots"><span></span><span></span><span></span></span>' +
-    '<span class="time">Preparing audio</span>';
+  bar.innerHTML =
+    '<svg style="width:15px;height:15px;flex-shrink:0;opacity:.6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>' +
+    '<span class="time">Preparing voice reply</span>' +
+    '<span class="dots"><span></span><span></span><span></span></span>';
   bubble.appendChild(bar);
   chat.scrollTop = chat.scrollHeight;
   try {
