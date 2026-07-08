@@ -30,11 +30,12 @@ Everything runs in **one Google Cloud Run GPU service** (NVIDIA L4, scale-to-zer
 
 This project is simple enough that everything here could be hand-rolled, including calling the
 model API directly and managing conversation history ourselves. We use the
-[Agent Development Kit](https://adk.dev/) for two practical reasons. First, it notably makes
+[Agent Development Kit](https://adk.dev/) for a few practical reasons. First, it notably makes
 managing tool calls and their results easier: they live in the session history as first-class
-events in a defined format and get replayed into context on later turns, which is exactly the
-part hand-rolled history tends to get wrong. Second, if this grows to need evaluations or
-observability, ADK has a convenient path forward for both. That is why we use it for this demo.
+events in a defined format and get replayed into context on later turns. Second, the agent is
+model-agnostic, so swapping between Gemini and self-hosted Gemma is a one-line model config
+change, which is exactly the plan here. And if this grows to need evaluations or observability,
+ADK has a convenient path forward for both.
 
 ## What it looks like
 
