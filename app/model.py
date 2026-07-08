@@ -11,6 +11,7 @@ events are appended automatically. Long-term memory is deliberately not used.
 import asyncio
 import os
 
+from google import genai
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -36,6 +37,30 @@ _agent = Agent(
 )
 _sessions = InMemorySessionService()
 _runner = Runner(agent=_agent, app_name=APP_NAME, session_service=_sessions)
+_genai_client = None
+
+
+def transcribe(audio: bytes, audio_mime: str = "audio/webm") -> str:
+    """Speech to text with the same model's native audio input. Shown in the UI, and the
+    transcription (not the raw audio) is what enters the conversation history."""
+    global _genai_client
+    if _genai_client is None:
+        _genai_client = genai.Client(
+            vertexai=True,
+            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+        )
+    response = _genai_client.models.generate_content(
+        model=MODEL_ID,
+        contents=[
+            types.Part.from_bytes(data=audio, mime_type=audio_mime),
+            types.Part.from_text(
+                text="Transcribe this audio verbatim. Reply with only the transcription, no quotes."
+            ),
+        ],
+        config=types.GenerateContentConfig(temperature=0),
+    )
+    return (response.text or "").strip()
 
 
 def _ensure_session(user_id: str, session_id: str) -> None:

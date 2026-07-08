@@ -171,11 +171,12 @@ function mdLite(text) {
   }).join("\n");
 }
 
-async function send(body) {
+async function send(body, userBubble) {
   const pending = add("bot", null);
   try {
     const resp = await fetch("/chat", { method: "POST", body });
     const data = await resp.json();
+    if (data.transcription && userBubble) userBubble.textContent = data.transcription;
     if (data.text) {
       pending.innerHTML = mdLite(data.text);
       if (data.speech_available) requestSpeech(pending, data.text);
@@ -307,11 +308,11 @@ micBtn.addEventListener("click", async () => {
     stream.getTracks().forEach((t) => t.stop());
     micBtn.classList.remove("recording");
     const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-    add("user", "Voice message");
+    const bubble = add("user", "Voice message...");
     const fd = new FormData();
     fd.append("audio", blob, "question.webm");
     fd.append("session_id", SESSION_ID);
-    send(fd);
+    send(fd, bubble);
   };
   recorder.start();
   micBtn.classList.add("recording");

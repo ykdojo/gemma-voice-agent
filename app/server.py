@@ -36,10 +36,20 @@ def chat():
             text = body.get("text")
             session_id = body.get("session_id") or session_id
 
+        transcription = None
+        if audio:
+            transcription = model.transcribe(audio, audio_mime)
+            text = transcription
+            audio = None  # history stays text-only; the transcription is what the agent sees
+
         answer = model.reply(text=text, audio=audio, audio_mime=audio_mime, session_id=session_id)
 
         # Speech is fetched separately via /speak so the text lands as soon as it is ready
-        return jsonify({"text": answer, "speech_available": os.environ.get("DISABLE_TTS") != "1"})
+        return jsonify({
+            "text": answer,
+            "transcription": transcription,
+            "speech_available": os.environ.get("DISABLE_TTS") != "1",
+        })
     except Exception as e:  # noqa: BLE001
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
