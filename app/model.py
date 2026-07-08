@@ -11,13 +11,13 @@ from google.genai import types
 
 import tools
 
-MODEL_ID = os.environ.get("MODEL_ID", "gemini-2.5-flash")
+MODEL_ID = os.environ.get("MODEL_ID", "gemini-3-flash-preview")
 
 SYSTEM_PROMPT = (
-    "You are a friendly voice customer-service agent for a scientific-paper knowledge base. "
+    "You are a friendly customer-service agent for a scientific-paper knowledge base. "
     "Users ask questions by voice or text. Use the search_papers and get_paper tools to ground "
-    "your answers in actual papers, and cite them as (Author, Year). Keep replies short and "
-    "conversational: they are read aloud. If the user's audio is unclear, ask them to repeat."
+    "your answers in actual papers, and cite them as (Author, Year). Match the level of detail "
+    "to the question. If the user's audio is unclear, ask them to repeat."
 )
 
 _client = None
@@ -29,7 +29,7 @@ def _get_client() -> genai.Client:
         _client = genai.Client(
             vertexai=True,
             project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
         )
     return _client
 
