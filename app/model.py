@@ -87,6 +87,56 @@ def _ensure_session(user_id: str, session_id: str) -> None:
     asyncio.run(go())
 
 
+def reply_stream(
+    text: str | None = None,
+    audio: bytes | None = None,
+    audio_mime: str = "audio/webm",
+    session_id: str = "default",
+):
+    """Streaming turn: yields dicts. type=status (tool running), delta (text chunk),
+    done (authoritative full text). Falls back to one done event if streaming is unavailable."""
+    parts = []
+    if audio:
+        parts.append(types.Part.from_bytes(data=audio, mime_type=audio_mime))
+    if text:
+        parts.append(types.Part.from_text(text=text))
+    if not parts:
+        raise ValueError("need text or audio")
+
+    user_id = session_id
+    _ensure_session(user_id, session_id)
+
+    try:
+        from google.adk.agents.run_config import RunConfig, StreamingMode
+
+        run_config = RunConfig(streaming_mode=StreamingMode.SSE)
+    except Exception:  # noqa: BLE001
+        run_config = None
+
+    final = None
+    events = _runner.run(
+        user_id=user_id,
+        session_id=session_id,
+        new_message=types.Content(role="user", parts=parts),
+        **({"run_config": run_config} if run_config else {}),
+    )
+    for event in events:
+        try:
+            if event.get_function_calls():
+                yield {"type": "status", "status": "Searching papers"}
+        except Exception:  # noqa: BLE001
+            pass
+        if event.content and event.content.parts:
+            chunk = "".join(p.text or "" for p in event.content.parts if p.text)
+            if not chunk:
+                continue
+            if getattr(event, "partial", False):
+                yield {"type": "delta", "text": chunk}
+            elif event.is_final_response():
+                final = chunk
+    yield {"type": "done", "text": final or "Sorry, I could not come up with an answer."}
+
+
 def reply(
     text: str | None = None,
     audio: bytes | None = None,
