@@ -4,7 +4,7 @@ A voice customer-service agent that is fully self-hosted: ask a question by voic
 searches a knowledge base, and answers back in voice, with no external AI APIs. Built entirely on
 open-weights models. **Your data, your infra, your control.**
 
-> **Note: on this branch, the model is temporarily Gemini.** Cloud Run GPU quota is still pending
+> **Note: right now, the model is temporarily Gemini.** Cloud Run GPU quota is still pending
 > on this new account (see [docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md)), so instead of
 > a self-hosted model, the brain/ears are **Gemini via Vertex AI** for now, behind a swappable
 > interface ([`app/model.py`](app/model.py)). As soon as quota lands, it gets replaced with
