@@ -1,14 +1,15 @@
 # Gemma Voice Agent
 
-> **This branch is a temporary setup.** Cloud Run GPU quota is still pending on this new account
-> (see [docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md)), so the brain/ears here are
-> **Gemini via Vertex AI** for now, behind a swappable interface ([`app/model.py`](app/model.py)).
-> The goal is unchanged: replace it with **self-hosted Gemma 4 on a Cloud Run L4 GPU** as soon as
-> quota lands. Everything else (chat UI, paper tools, Kokoro voice) already works as designed.
-
 A voice customer-service agent that is fully self-hosted: ask a question by voice, the agent
 searches a knowledge base, and answers back in voice, with no external AI APIs. Built entirely on
 open-weights models. **Your data, your infra, your control.**
+
+> **Note: on this branch, the model is temporarily Gemini.** Cloud Run GPU quota is still pending
+> on this new account (see [docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md)), so instead of
+> a self-hosted model, the brain/ears are **Gemini via Vertex AI** for now, behind a swappable
+> interface ([`app/model.py`](app/model.py)). As soon as quota lands, it gets replaced with
+> **self-hosted Gemma 4 on a Cloud Run L4 GPU**, restoring the fully-private design described
+> here. Everything else (chat UI, paper tools, Kokoro voice) already works as designed.
 
 The knowledge base in this demo is scientific papers, standing in for whatever *your* private data
 source is: an internal database, docs, or search engine.
