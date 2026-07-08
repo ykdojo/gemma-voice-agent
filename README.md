@@ -26,6 +26,16 @@ Everything runs in **one Google Cloud Run GPU service** (NVIDIA L4, scale-to-zer
 | Voice out | **Kokoro** (82M, CPU) |
 | Frontend | Basic chat interface: type or talk, replies come back as text and voice |
 
+## Why ADK?
+
+This project is simple enough that everything here could be hand-rolled, including calling the
+model API directly and managing conversation history ourselves. We use the
+[Agent Development Kit](https://adk.dev/) for two practical reasons. First, it notably makes
+managing tool calls and their results easier: they live in the session history as first-class
+events in a defined format and get replayed into context on later turns, which is exactly the
+part hand-rolled history tends to get wrong. Second, if this grows to need evaluations or
+observability, ADK has a convenient path forward for both. That is why we use it for this demo.
+
 ## What it looks like
 
 <img src="docs/ui-chat.png" width="380" alt="Chat UI: a typed question about sleep and memory, answered with a structured, cited reading list">
