@@ -42,7 +42,7 @@ ADK has a convenient path forward for both.
 
 ## Demo & screenshot
 
-https://github.com/ykdojo/gemma-voice-agent/raw/main/docs/demo.mov
+https://github.com/user-attachments/assets/a2d4ba4c-f5f2-439f-b113-7ee945223c18
 
 <img src="docs/ui-chat.png" width="380" alt="Chat UI: a multi-turn conversation about the discovery of REM sleep, each reply with a voice playback bar and waveform">
 
