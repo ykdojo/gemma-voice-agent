@@ -104,6 +104,9 @@
   .voice button svg { width: 13px; height: 13px; }
   .voice canvas { flex: 1; height: 32px; min-width: 0; }
   .voice .time { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .listening { display: flex; align-items: center; gap: 10px; }
+  .listening canvas { width: 130px; height: 26px; }
+  .listening span { font-size: 13px; opacity: .8; }
 </style>
 </head>
 <body>
@@ -302,13 +305,52 @@ micBtn.addEventListener("click", async () => {
   if (recorder && recorder.state === "recording") { recorder.stop(); return; }
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   chunks = [];
+
+  // Live input-level meter so you can see the microphone is actually hearing you
+  const bubble = add("user", "");
+  bubble.classList.add("listening");
+  bubble.innerHTML = '<canvas></canvas><span>Listening</span>';
+  const meter = bubble.querySelector("canvas");
+  const actx = new (window.AudioContext || window.webkitAudioContext)();
+  const analyser = actx.createAnalyser();
+  analyser.fftSize = 512;
+  actx.createMediaStreamSource(stream).connect(analyser);
+  const sample = new Uint8Array(analyser.fftSize);
+  const levels = [];
+  let raf;
+  function drawLevels() {
+    analyser.getByteTimeDomainData(sample);
+    let sum = 0;
+    for (const v of sample) { const d = (v - 128) / 128; sum += d * d; }
+    levels.push(Math.sqrt(sum / sample.length));
+    if (levels.length > 44) levels.shift();
+    const dpr = window.devicePixelRatio || 1;
+    const w = meter.clientWidth, h = meter.clientHeight;
+    meter.width = w * dpr; meter.height = h * dpr;
+    const g = meter.getContext("2d");
+    g.scale(dpr, dpr);
+    g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent-text").trim();
+    const bw = w / 44;
+    levels.forEach((lv, i) => {
+      const bh = Math.max(2, Math.min(1, lv * 6) * (h - 4));
+      g.beginPath();
+      g.roundRect(i * bw + bw * 0.2, (h - bh) / 2, bw * 0.6, bh, 1.5);
+      g.fill();
+    });
+    raf = requestAnimationFrame(drawLevels);
+  }
+  drawLevels();
+
   recorder = new MediaRecorder(stream);
   recorder.ondataavailable = (e) => chunks.push(e.data);
   recorder.onstop = () => {
     stream.getTracks().forEach((t) => t.stop());
+    cancelAnimationFrame(raf);
+    actx.close();
     micBtn.classList.remove("recording");
+    bubble.classList.remove("listening");
+    bubble.textContent = "Voice message...";
     const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-    const bubble = add("user", "Voice message...");
     const fd = new FormData();
     fd.append("audio", blob, "question.webm");
     fd.append("session_id", SESSION_ID);
