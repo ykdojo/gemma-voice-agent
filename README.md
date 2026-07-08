@@ -17,7 +17,7 @@ Everything runs in **one Google Cloud Run GPU service** (NVIDIA L4, scale-to-zer
 | Agent loop / tool use | Same Gemma instance, orchestrated with **ADK** |
 | Knowledge lookup | OpenAlex paper search (stand-in for your in-infra data source) |
 | Voice out | **Kokoro** (82M, CPU) |
-| Frontend | Minimal mobile web page, press-and-hold to talk |
+| Frontend | Basic chat interface: type or talk, replies come back as text and voice |
 
 ## Status
 
@@ -28,7 +28,7 @@ Early days. Building in the open, step by step:
 - [ ] Native audio input (voice note → answer)
 - [ ] Paper-lookup tool wired in via ADK
 - [ ] Kokoro voice out
-- [ ] Web frontend
+- [ ] Web frontend: basic chat, both text and voice input
 
 ## Why self-host?
 
