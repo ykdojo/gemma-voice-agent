@@ -157,7 +157,9 @@ const form = document.getElementById("form");
 const textEl = document.getElementById("text");
 const micBtn = document.getElementById("mic");
 const meter = document.getElementById("levelmeter");
-const SESSION_ID = sessionStorage.sid || (sessionStorage.sid = crypto.randomUUID());
+// A new conversation on every page load: the ID lives only in this page instance,
+// so a refresh always starts clean and can never see an older session's history.
+const SESSION_ID = crypto.randomUUID();
 const DOTS = '<span class="dots"><span></span><span></span><span></span></span>';
 
 function add(cls, content) {
