@@ -194,6 +194,11 @@ async function chatRequest(body) {
   };
   try {
     const resp = await fetch("/chat", { method: "POST", body });
+    const ct = resp.headers.get("content-type") || "";
+    if (!resp.ok || !ct.includes("ndjson")) {
+      pending.textContent = "The server had a problem (HTTP " + resp.status + "). Please try again.";
+      return;
+    }
     const reader = resp.body.getReader();
     const dec = new TextDecoder();
     let leftover = "";
@@ -204,10 +209,13 @@ async function chatRequest(body) {
       const lines = leftover.split("\n");
       leftover = lines.pop();
       for (const line of lines) {
-        if (line.trim()) handle(JSON.parse(line));
+        if (!line.trim()) continue;
+        try { handle(JSON.parse(line)); } catch (e) { console.error("bad stream line", line); }
       }
     }
-    if (leftover.trim()) handle(JSON.parse(leftover));
+    if (leftover.trim()) {
+      try { handle(JSON.parse(leftover)); } catch (e) { console.error("bad stream tail", leftover); }
+    }
   } catch (e) {
     pending.textContent = "Request failed: " + e;
   }
