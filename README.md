@@ -1,9 +1,8 @@
 # Gemma Voice Agent
 
 A voice customer-service agent that is fully self-hosted: ask a question by voice, the agent
-searches a knowledge base, and answers back in voice, with no external AI APIs. **Your data, your
-infra, your control.** And because every model is open-weights, you can fine-tune any part of it
-for your domain.
+searches a knowledge base, and answers back in voice, with no external AI APIs. Built entirely on
+open-weights models. **Your data, your infra, your control.**
 
 The knowledge base in this demo is scientific papers, standing in for whatever *your* private data
 source is: an internal database, docs, or search engine.
@@ -36,5 +35,5 @@ Early days. Building in the open, step by step:
 Frontier hosted models are more capable in general, but a customer-service bot doesn't need a
 frontier model. It needs to understand speech (a largely-solved task where open models are
 competitive), follow instructions over your data, and keep that data under your control.
-Self-hosting gives you all of that: your data, your infra, your rules, no per-token vendor bill,
-and a model you can fine-tune.
+Self-hosting gives you all of that: your data, your infra, your rules, and no per-token vendor
+bill.
