@@ -34,15 +34,22 @@ def chat():
 
         answer = model.reply(text=text, audio=audio, audio_mime=audio_mime)
 
-        voice_b64 = None
-        if os.environ.get("DISABLE_TTS") != "1":
-            try:
-                spoken = re.sub(r"[*#_`]+", "", answer)  # markdown reads terribly aloud
-                voice_b64 = base64.b64encode(tts.synthesize(spoken)).decode()
-            except Exception:  # noqa: BLE001 - voice is best-effort; text is the contract
-                traceback.print_exc()
+        # Speech is fetched separately via /speak so the text lands as soon as it is ready
+        return jsonify({"text": answer, "speech_available": os.environ.get("DISABLE_TTS") != "1"})
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
-        return jsonify({"text": answer, "audio_wav_base64": voice_b64})
+
+@app.post("/speak")
+def speak():
+    try:
+        text = (request.get_json(silent=True) or {}).get("text", "")
+        if not text:
+            return jsonify({"error": "no text"}), 400
+        spoken = re.sub(r"[*#_`]+", "", text)  # markdown reads terribly aloud
+        voice_b64 = base64.b64encode(tts.synthesize(spoken)).decode()
+        return jsonify({"audio_wav_base64": voice_b64})
     except Exception as e:  # noqa: BLE001
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
