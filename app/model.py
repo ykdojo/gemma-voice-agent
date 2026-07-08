@@ -10,6 +10,7 @@ events are appended automatically. Long-term memory is deliberately not used.
 """
 import asyncio
 import os
+import time
 
 from google import genai
 from google.adk.agents import Agent
@@ -20,6 +21,9 @@ from google.genai import types
 import tools
 
 MODEL_ID = os.environ.get("MODEL_ID", "gemini-3-flash-preview")
+# Transcription is a narrow ASR task: a cheaper model on a separate quota pool, so the
+# display-only transcription call never competes with the agent call for rate limit.
+TRANSCRIBE_MODEL = os.environ.get("TRANSCRIBE_MODEL", "gemini-2.5-flash")
 APP_NAME = "paper-voice-agent"
 
 SYSTEM_PROMPT = (
@@ -50,17 +54,24 @@ def transcribe(audio: bytes, audio_mime: str = "audio/webm") -> str:
             project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
             location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
         )
-    response = _genai_client.models.generate_content(
-        model=MODEL_ID,
-        contents=[
-            types.Part.from_bytes(data=audio, mime_type=audio_mime),
-            types.Part.from_text(
-                text="Transcribe this audio verbatim. Reply with only the transcription, no quotes."
-            ),
-        ],
-        config=types.GenerateContentConfig(temperature=0),
-    )
-    return (response.text or "").strip()
+    last_error = None
+    for attempt in range(2):
+        try:
+            response = _genai_client.models.generate_content(
+                model=TRANSCRIBE_MODEL,
+                contents=[
+                    types.Part.from_bytes(data=audio, mime_type=audio_mime),
+                    types.Part.from_text(
+                        text="Transcribe this audio verbatim. Reply with only the transcription, no quotes."
+                    ),
+                ],
+                config=types.GenerateContentConfig(temperature=0),
+            )
+            return (response.text or "").strip()
+        except Exception as e:  # noqa: BLE001 - retry once (e.g. transient 429), then give up
+            last_error = e
+            time.sleep(1.5 * (attempt + 1))
+    raise last_error
 
 
 def _ensure_session(user_id: str, session_id: str) -> None:
