@@ -1,9 +1,11 @@
 """Voice out: text in, WAV bytes out. Two switchable backends:
 
-- kokoro (default): Kokoro 82M, open weights, self-hosted. The mouth in the fully-private
-  design. Roughly real-time on CPU, many times faster once this service runs on a GPU.
-- cloudtts: Google Cloud Text-to-Speech. Interim option while this service is CPU-only,
+- cloudtts (current): Google Cloud Text-to-Speech. Interim while this service is CPU-only,
   because synthesis returns in a second or two. Hosted, so not part of the private design.
+- kokoro: Kokoro 82M, open weights, self-hosted. The mouth in the fully-private design;
+  returns with the GPU era. Its dependencies are NOT in the image right now: to enable, add
+  kokoro and soundfile to requirements.txt, apt-get espeak-ng in the Dockerfile, and set
+  TTS_BACKEND=kokoro.
 
 Select with TTS_BACKEND=kokoro|cloudtts.
 """
@@ -13,7 +15,7 @@ import wave
 
 import numpy as np
 
-BACKEND = os.environ.get("TTS_BACKEND", "kokoro")
+BACKEND = os.environ.get("TTS_BACKEND", "cloudtts")
 SAMPLE_RATE = 24000
 
 _kokoro = None
