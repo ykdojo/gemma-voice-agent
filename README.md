@@ -25,13 +25,18 @@ Everything runs in **one Google Cloud Run GPU service** (NVIDIA L4, scale-to-zer
 | Voice out | **Kokoro** (82M, CPU) |
 | Frontend | Basic chat interface: type or talk, replies come back as text and voice |
 
+## What it looks like
+
+<img src="docs/ui-chat.png" width="380" alt="Chat UI: a typed question about sleep and memory, answered with a structured, cited reading list">
+
 ## Status
 
 Early days. Building in the open, step by step:
 
 - [x] Step 1: verify a GPU container runs on Cloud Run, see [`hello-gpu/`](hello-gpu/)
-- [ ] Gemma 4 E4B text-only Q&A endpoint
-- [ ] Native audio input (voice note → answer)
-- [ ] Paper-lookup tool wired in via ADK
-- [ ] Kokoro voice out
-- [ ] Web frontend: basic chat, both text and voice input
+- [x] Web frontend: chat with both text and voice input, waveform playback bar for voice replies
+- [x] Paper-lookup tool (OpenAlex) wired into the agent loop (ADK migration: [#1](https://github.com/delfinadap/gemma-voice-agent/issues/1))
+- [x] Native audio input (voice note → answer), via Gemini for now
+- [x] Kokoro voice out (CPU)
+- [ ] Swap the interim Gemini brain for **Gemma 4 E4B on a Cloud Run L4 GPU** (blocked on
+      [GPU quota](docs/gpu-quota-blocker.md))
