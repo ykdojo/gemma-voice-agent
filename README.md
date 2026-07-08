@@ -40,6 +40,13 @@ model-agnostic, so swapping between Gemini and self-hosted Gemma is a one-line m
 change, which is exactly the plan here. And if this grows to need evaluations or observability,
 ADK has a convenient path forward for both.
 
+## Live demo
+
+Try it: **https://paper-voice-agent-s5gpuqcnza-uc.a.run.app**
+
+It scales to zero when idle, so the first request after a quiet period takes ~30 seconds to cold
+start; after that it is snappy. Voice input needs microphone permission in your browser.
+
 ## What it looks like
 
 <img src="docs/ui-chat.png" width="380" alt="Chat UI: a multi-turn conversation about the discovery of REM sleep, each reply with a voice playback bar and waveform">
