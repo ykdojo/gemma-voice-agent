@@ -1,6 +1,7 @@
 """HTTP server: serves the chat frontend and one /chat endpoint (text or audio in, text + audio out)."""
 import base64
 import os
+import re
 import traceback
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -36,7 +37,8 @@ def chat():
         voice_b64 = None
         if os.environ.get("DISABLE_TTS") != "1":
             try:
-                voice_b64 = base64.b64encode(tts.synthesize(answer)).decode()
+                spoken = re.sub(r"[*#_`]+", "", answer)  # markdown reads terribly aloud
+                voice_b64 = base64.b64encode(tts.synthesize(spoken)).decode()
             except Exception:  # noqa: BLE001 - voice is best-effort; text is the contract
                 traceback.print_exc()
 
