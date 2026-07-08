@@ -177,14 +177,35 @@ async function send(body) {
     const data = await resp.json();
     if (data.text) {
       pending.innerHTML = mdLite(data.text);
+      if (data.speech_available) requestSpeech(pending, data.text);
     } else {
       pending.textContent = data.error || "Something went wrong.";
     }
-    if (data.audio_wav_base64) attachVoiceBar(pending, data.audio_wav_base64);
   } catch (e) {
     pending.textContent = "Request failed: " + e;
   }
   chat.scrollTop = chat.scrollHeight;
+}
+
+async function requestSpeech(bubble, text) {
+  const bar = document.createElement("div");
+  bar.className = "voice";
+  bar.innerHTML = '<span class="dots"><span></span><span></span><span></span></span>' +
+    '<span class="time">Preparing audio</span>';
+  bubble.appendChild(bar);
+  chat.scrollTop = chat.scrollHeight;
+  try {
+    const resp = await fetch("/speak", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const data = await resp.json();
+    bar.remove();
+    if (data.audio_wav_base64) attachVoiceBar(bubble, data.audio_wav_base64);
+  } catch (e) {
+    bar.remove();
+  }
 }
 
 const PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
