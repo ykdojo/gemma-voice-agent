@@ -91,7 +91,7 @@ invitation-only), both redundancy modes:
 | europe-west4 | GPU quota 0 | GPU quota 0 |
 | asia-southeast1 | GPU quota 0 | GPU quota 0 |
 
-Also requested quota increases directly. The us-central1 memory cap from 40 GiB to 64 GiB:
+Also requested a quota increase directly: the us-central1 memory cap from 40 GiB to 64 GiB.
 
 ```sh
 gcloud beta quotas preferences create --service=run.googleapis.com \
