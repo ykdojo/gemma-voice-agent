@@ -63,7 +63,15 @@ behavior is identical everywhere:
 
 **Creating a new GPU service** fails on GPU quota, as in the repro above.
 
-**Updating an existing (CPU-only) service to GPU** gets past that check and fails on memory:
+**Updating an existing (CPU-only) service to GPU** gets past that check and fails on memory.
+Same command as the repro; the difference is that `hello-gpu` already existed as a CPU-only
+service:
+
+```sh
+gcloud run deploy hello-gpu --source . --region us-central1 \
+  --gpu 1 --gpu-type nvidia-l4 --no-gpu-zonal-redundancy \
+  --cpu 4 --memory 16Gi --max-instances 1 --allow-unauthenticated
+```
 
 ```
 Quota violated:
