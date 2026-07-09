@@ -75,8 +75,10 @@ Quota violated:
 MemAllocPerProjectRegion requested: 51539607552 allowed: 42949672960
 ```
 
-48 GiB requested is 3 x the 16 GiB GPU minimum: the first-deploy auto-grant comes as a fixed
-bundle of 3 GPUs, and validation checks memory headroom for all 3 even with `--max-instances 1`.
+Those values are 48 GiB requested vs 40 GiB allowed, and they're about system RAM, not GPU
+memory: Cloud Run requires at least 16 GiB of RAM on any instance with a GPU attached, the
+first-deploy auto-grant comes as a fixed bundle of 3 GPUs, and validation checks RAM headroom
+for all 3 instances (3 x 16 GiB = 48 GiB) even with `--max-instances 1`.
 The 40 GiB per-region memory cap can't hold that, and increase requests are denied
 (`NOT_ENOUGH_USAGE_HISTORY`). Explicit GPU quota requests (1 or 3) are still granted 0.
 
