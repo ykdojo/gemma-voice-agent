@@ -56,19 +56,22 @@ still waited at 50+ hours; [same wall here](https://discuss.google.dev/t/300-fre
 
 I also tried escalating this to sales and support, but none of the options I tried quite worked.
 
-## Update (2026-07-08): GPU gate lifted in us-central1, memory quota is the new blocker
+## Update (2026-07-08/09)
 
-About a day after the paid upgrade, the us-central1 deploy stopped failing on GPU quota.
-Re-running the same deploy command from the repro above:
+The error changes with how you deploy. Verified in all five publicly available L4 regions;
+behavior is identical everywhere:
+
+**Creating a new GPU service** fails on GPU quota, as in the repro above.
+
+**Updating an existing (CPU-only) service to GPU** gets past that check and fails on memory.
+Same command as the repro; the difference is that `hello-gpu` already existed as a CPU-only
+service:
 
 ```sh
-cd hello-gpu
 gcloud run deploy hello-gpu --source . --region us-central1 \
   --gpu 1 --gpu-type nvidia-l4 --no-gpu-zonal-redundancy \
   --cpu 4 --memory 16Gi --max-instances 1 --allow-unauthenticated
 ```
-
-It now fails on memory instead:
 
 ```
 Quota violated:
@@ -80,32 +83,7 @@ instance with a GPU attached, and the
 [first-deploy auto-grant](https://docs.cloud.google.com/run/docs/configuring/services/gpu)
 comes as a fixed bundle of 3 GPUs.
 
-Swept all five publicly available L4 regions (the docs list a sixth, asia-south1, but it's
-invitation-only), both redundancy modes:
-
-| Region | No zonal redundancy | Zonal redundancy |
-|---|---|---|
-| us-central1 | memory quota (past the GPU gate) | GPU quota 0 |
-| us-east4 | GPU quota 0 | GPU quota 0 |
-| europe-west1 | GPU quota 0 | GPU quota 0 |
-| europe-west4 | GPU quota 0 | GPU quota 0 |
-| asia-southeast1 | GPU quota 0 | GPU quota 0 |
-
-Also requested a quota increase directly: the us-central1 memory cap from 40 GiB to 50 GiB.
-
-```sh
-gcloud beta quotas preferences create --service=run.googleapis.com \
-  --quota-id=MemAllocPerProjectRegion \
-  --preferred-value=53687091200 --dimensions=region=us-central1 \
-  --project=<project id> --email=<account email>
-```
-
-```
-"We cannot grant the preferred quota '53687091200' for limit 'MemAllocPerProjectRegion'
-in service 'run.googleapis.com' at this moment. '42949672960' was granted."
-```
-
-The quotas API reports the memory quota as ineligible for increase:
+Requests to raise the memory cap are denied; the quotas API reports it as ineligible:
 
 ```sh
 gcloud beta quotas info describe MemAllocPerProjectRegion \
@@ -117,3 +95,26 @@ gcloud beta quotas info describe MemAllocPerProjectRegion \
 quotaIncreaseEligibility:
   ineligibilityReason: NOT_ENOUGH_USAGE_HISTORY
 ```
+
+**Updating a service that already has the resources** bypasses the memory check entirely.
+Deploy CPU-only with the GPU minimums (4 CPU, 16 GiB) first, then add only the GPU:
+
+```sh
+gcloud run deploy hello-gpu-mem --image <image> --region us-central1 \
+  --cpu 4 --memory 16Gi --max-instances 1 --allow-unauthenticated
+
+gcloud run deploy hello-gpu-mem --image <image> --region us-central1 \
+  --gpu 1 --gpu-type nvidia-l4 --no-gpu-zonal-redundancy \
+  --cpu 4 --memory 16Gi --max-instances 1 --allow-unauthenticated
+```
+
+The second deploy passes validation and creates the revision, then fails at provisioning:
+
+```
+Quota exceeded for total allowable count of GPUs per project per region.
+```
+
+**Bottom line:** no path grants any GPU quota. Per the
+[docs](https://docs.cloud.google.com/run/docs/configuring/services/gpu), the first GPU
+deployment in a region automatically grants 3 GPUs of quota, no request needed. That never
+happened here, even after a GPU revision was created.
