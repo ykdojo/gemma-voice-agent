@@ -90,3 +90,30 @@ invitation-only), both redundancy modes:
 | europe-west1 | GPU quota 0 | GPU quota 0 |
 | europe-west4 | GPU quota 0 | GPU quota 0 |
 | asia-southeast1 | GPU quota 0 | GPU quota 0 |
+
+Also requested a quota increase directly: the us-central1 memory cap from 40 GiB to 50 GiB.
+
+```sh
+gcloud beta quotas preferences create --service=run.googleapis.com \
+  --quota-id=MemAllocPerProjectRegion \
+  --preferred-value=53687091200 --dimensions=region=us-central1 \
+  --project=<project id> --email=<account email>
+```
+
+```
+"We cannot grant the preferred quota '53687091200' for limit 'MemAllocPerProjectRegion'
+in service 'run.googleapis.com' at this moment. '42949672960' was granted."
+```
+
+The quotas API reports the memory quota as ineligible for increase:
+
+```sh
+gcloud beta quotas info describe MemAllocPerProjectRegion \
+  --service=run.googleapis.com --project=<project id> \
+  --format="yaml(quotaIncreaseEligibility)"
+```
+
+```
+quotaIncreaseEligibility:
+  ineligibilityReason: NOT_ENOUGH_USAGE_HISTORY
+```
