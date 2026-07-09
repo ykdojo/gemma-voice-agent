@@ -117,3 +117,41 @@ gcloud beta quotas info describe MemAllocPerProjectRegion \
 quotaIncreaseEligibility:
   ineligibilityReason: NOT_ENOUGH_USAGE_HISTORY
 ```
+
+## Update (2026-07-09): not about regions or time. No GPU quota is granted by any path
+
+Re-ran everything a day later. Two corrections to the update above, and one new finding.
+
+**Create vs update, not region.** Which error you get depends on whether the service already
+exists, and it's the same in all five regions:
+
+- Creating a new GPU service fails on GPU quota, including in us-central1.
+- Updating an existing (CPU-only) service to GPU passes the GPU check and fails on the
+  48 vs 40 GiB memory validation, in every region tested.
+
+So "us-central1 stopped failing on GPU quota" above was not the account aging: the 07-07
+attempts created the service, the 07-08 one updated an existing one. Different validation
+paths, same refusal.
+
+**The memory check can be bypassed.** Give an existing service the resources first, then add
+only the GPU:
+
+```sh
+gcloud run deploy hello-gpu-mem --image <image> --region us-central1 \
+  --cpu 4 --memory 16Gi --max-instances 1 --allow-unauthenticated
+
+gcloud run deploy hello-gpu-mem --image <image> --region us-central1 \
+  --gpu 1 --gpu-type nvidia-l4 --no-gpu-zonal-redundancy \
+  --cpu 4 --memory 16Gi --max-instances 1 --allow-unauthenticated
+```
+
+The second deploy passes validation and creates the revision, then fails at provisioning:
+
+```
+Quota exceeded for total allowable count of GPUs per project per region.
+```
+
+**Root cause.** Every error so far is the same refusal surfacing at different stages: this
+account has zero L4 quota and nothing grants any. The documented first-deploy auto-grant did
+not fire even after a GPU revision was created (the documented trigger). The memory cap is
+still 40 GiB, still `NOT_ENOUGH_USAGE_HISTORY`.
