@@ -91,17 +91,17 @@ invitation-only), both redundancy modes:
 | europe-west4 | GPU quota 0 | GPU quota 0 |
 | asia-southeast1 | GPU quota 0 | GPU quota 0 |
 
-Also requested a quota increase directly: the us-central1 memory cap from 40 GiB to 64 GiB.
+Also requested a quota increase directly: the us-central1 memory cap from 40 GiB to 50 GiB.
 
 ```sh
 gcloud beta quotas preferences create --service=run.googleapis.com \
   --quota-id=MemAllocPerProjectRegion \
-  --preferred-value=68719476736 --dimensions=region=us-central1 \
+  --preferred-value=53687091200 --dimensions=region=us-central1 \
   --project=<project id> --email=<account email>
 ```
 
 ```
-"We cannot grant the preferred quota '68719476736' for limit 'MemAllocPerProjectRegion'
+"We cannot grant the preferred quota '53687091200' for limit 'MemAllocPerProjectRegion'
 in service 'run.googleapis.com' at this moment. '42949672960' was granted."
 ```
 
