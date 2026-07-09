@@ -105,21 +105,4 @@ gcloud beta quotas preferences create --service=run.googleapis.com \
 in service 'run.googleapis.com' at this moment. '42949672960' was granted."
 ```
 
-And the L4 quota itself: if granted explicitly, the deploy wouldn't need to trigger the 3-GPU
-auto-grant, so it would only have to fit one 16 GiB instance under the 40 GiB memory cap.
-Still denied:
-
-```sh
-gcloud beta quotas preferences update <preference id> --service=run.googleapis.com \
-  --quota-id=NvidiaL4GpuAllocNoZonalRedundancyPerProjectRegion \
-  --preferred-value=3 --dimensions=region=us-central1 \
-  --project=<project id> --email=<account email>
-```
-
-```
-"We cannot grant the preferred quota '3' for limit
-'NvidiaL4GpuAllocNoZonalRedundancyPerProjectRegion' in service 'run.googleapis.com'
-at this moment. '0' was granted."
-```
-
 The console marks the memory quota ineligible for increase: `NOT_ENOUGH_USAGE_HISTORY`.
