@@ -105,4 +105,15 @@ gcloud beta quotas preferences create --service=run.googleapis.com \
 in service 'run.googleapis.com' at this moment. '42949672960' was granted."
 ```
 
-The console marks the memory quota ineligible for increase: `NOT_ENOUGH_USAGE_HISTORY`.
+The quotas API reports the memory quota as ineligible for increase:
+
+```sh
+gcloud beta quotas info describe MemAllocPerProjectRegion \
+  --service=run.googleapis.com --project=<project id> \
+  --format="yaml(quotaIncreaseEligibility)"
+```
+
+```
+quotaIncreaseEligibility:
+  ineligibilityReason: NOT_ENOUGH_USAGE_HISTORY
+```
