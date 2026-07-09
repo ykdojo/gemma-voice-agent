@@ -105,7 +105,9 @@ gcloud beta quotas preferences create --service=run.googleapis.com \
 in service 'run.googleapis.com' at this moment. '42949672960' was granted."
 ```
 
-And the L4 quota to 3 (an update, since step 2 above already created the preference):
+And the L4 quota itself: if granted explicitly, the deploy wouldn't need to trigger the 3-GPU
+auto-grant, so it would only have to fit one 16 GiB instance under the 40 GiB memory cap.
+Still denied:
 
 ```sh
 gcloud beta quotas preferences update <preference id> --service=run.googleapis.com \
