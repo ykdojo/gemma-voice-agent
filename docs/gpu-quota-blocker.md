@@ -73,7 +73,10 @@ MemAllocPerProjectRegion requested: 51539607552 allowed: 42949672960
 That's 48 GiB requested vs 40 GiB allowed: Cloud Run requires at least 16 GiB of RAM on any
 instance with a GPU attached, and the
 [first-deploy auto-grant](https://docs.cloud.google.com/run/docs/configuring/services/gpu)
-comes as a fixed bundle of 3 GPUs.
+comes as a fixed bundle of 3 GPUs. The check itself is plain memory arithmetic, nothing
+GPU-specific: a CPU-only deploy of 16 GiB with `--max-instances 3` (48 GiB total) trips the
+identical error. The GPU deploy just gets counted as 3 potential 16 GiB instances even with
+`--max-instances 1`.
 
 Requesting the memory cap raised from 40 GiB to 50 GiB:
 
