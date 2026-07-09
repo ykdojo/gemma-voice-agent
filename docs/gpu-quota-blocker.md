@@ -90,3 +90,17 @@ invitation-only), both redundancy modes:
 | europe-west1 | GPU quota 0 | GPU quota 0 |
 | europe-west4 | GPU quota 0 | GPU quota 0 |
 | asia-southeast1 | GPU quota 0 | GPU quota 0 |
+
+Also requested quota increases directly (same API as step 2 above): the us-central1 memory cap
+from 40 GiB to 64 GiB, and the L4 quota to 3. Both denied:
+
+```
+"We cannot grant the preferred quota '68719476736' for limit 'MemAllocPerProjectRegion'
+in service 'run.googleapis.com' at this moment. '42949672960' was granted."
+
+"We cannot grant the preferred quota '3' for limit
+'NvidiaL4GpuAllocNoZonalRedundancyPerProjectRegion' in service 'run.googleapis.com'
+at this moment. '0' was granted."
+```
+
+The console marks the memory quota ineligible for increase: `NOT_ENOUGH_USAGE_HISTORY`.
