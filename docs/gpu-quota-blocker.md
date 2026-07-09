@@ -106,5 +106,7 @@ The second deploy passes validation and creates the revision, then fails at prov
 Quota exceeded for total allowable count of GPUs per project per region.
 ```
 
-**Bottom line:** no path grants any GPU quota, and the documented first-deploy auto-grant
-never fired, even after a GPU revision was created (its documented trigger).
+**Bottom line:** no path grants any GPU quota. Per the
+[docs](https://docs.cloud.google.com/run/docs/configuring/services/gpu), the first GPU
+deployment in a region automatically grants 3 GPUs of quota, no request needed. That never
+happened here, even after a GPU revision was created (the documented trigger).
