@@ -73,24 +73,9 @@ MemAllocPerProjectRegion requested: 51539607552 allowed: 42949672960
 That's 48 GiB requested vs 40 GiB allowed: Cloud Run requires at least 16 GiB of RAM on any
 instance with a GPU attached, and the
 [first-deploy auto-grant](https://docs.cloud.google.com/run/docs/configuring/services/gpu)
-comes as a fixed bundle of 3 GPUs. The check itself is plain memory arithmetic, nothing
-GPU-specific: a CPU-only deploy of 16 GiB with `--max-instances 3` (48 GiB total) trips the
-identical error. The GPU deploy just gets counted as 3 potential 16 GiB instances even with
-`--max-instances 1`.
+comes as a fixed bundle of 3 GPUs.
 
-Requesting the memory cap raised from 40 GiB to 50 GiB:
-
-```sh
-gcloud beta quotas preferences create --service=run.googleapis.com \
-  --quota-id=MemAllocPerProjectRegion \
-  --preferred-value=53687091200 --dimensions=region=us-central1 \
-  --project=<project id> --email=<account email>
-```
-
-```
-"We cannot grant the preferred quota '53687091200' for limit 'MemAllocPerProjectRegion'
-in service 'run.googleapis.com' at this moment. '42949672960' was granted."
-```
+Requests to raise the memory cap are denied; the quotas API reports it as ineligible:
 
 ```sh
 gcloud beta quotas info describe MemAllocPerProjectRegion \
@@ -121,8 +106,5 @@ The second deploy passes validation and creates the revision, then fails at prov
 Quota exceeded for total allowable count of GPUs per project per region.
 ```
 
-**Root cause:** the account has zero L4 quota and no path grants any. The documented
-first-deploy auto-grant did not fire even after a GPU revision was created (the documented
-trigger), and nothing changed between days one and three, so the propagation-lag diagnosis
-above remains unconfirmed. The memory and GPU errors are the same refusal surfacing at
-different stages.
+**Bottom line:** no path grants any GPU quota, and the documented first-deploy auto-grant
+never fired, even after a GPU revision was created (its documented trigger).
