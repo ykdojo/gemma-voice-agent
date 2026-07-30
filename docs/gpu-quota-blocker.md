@@ -145,3 +145,20 @@ So the "24-48 hour trust propagation" explanation is ruled out: three weeks on a
 account with real (CPU) Cloud Run usage, and both the auto-grant and the manual request
 paths remain closed. This looks like an account-trust tier gate, not a propagation lag.
 (The probe service was not created; nothing to clean up.)
+
+### Full matrix re-run, same day
+
+Every path from the July repro, re-tested:
+
+| Path | Result |
+|------|--------|
+| New service, `--no-gpu-zonal-redundancy`, us-central1 | validation error, no quota (unchanged) |
+| New service, `--gpu-zonal-redundancy`, us-central1 | validation error, no quota (unchanged) |
+| New service, us-east4 / europe-west1 / asia-southeast1 / europe-west4 | identical validation error in all four (unchanged) |
+| Update `hello-gpu-mem` (already 4 CPU / 16 GiB) to add GPU | passes validation, fails at provisioning: `Quota exceeded for total allowable count of GPUs per project per region` (unchanged) |
+| Quotas API: new preference request | rejected as duplicate; the existing preference still shows `grantedValue: 0` |
+| `quotaIncreaseEligibility` on GPU + memory quotas | still `NOT_ENOUGH_USAGE_HISTORY` |
+
+All existing quota preferences on the project (GPU no-zonal ×3, GPU zonal, compute
+`GPUS-ALL-REGIONS`, memory) remain granted 0 or capped. `hello-gpu-mem` was restored
+to CPU-only afterward (revision 00009).
