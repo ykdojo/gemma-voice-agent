@@ -118,3 +118,30 @@ Quota exceeded for total allowable count of GPUs per project per region.
 [docs](https://docs.cloud.google.com/run/docs/configuring/services/gpu), the first GPU
 deployment in a region automatically grants 3 GPUs of quota, no request needed. That never
 happened here, even after a GPU revision was created.
+
+## Update (2026-07-29): still blocked, 22 days after upgrading to paid
+
+Re-tested with a fresh new-service deploy using the prebuilt hello image (no build,
+fails at validation if quota is still 0):
+
+```sh
+gcloud run deploy gpu-quota-probe --image=us-docker.pkg.dev/cloudrun/container/hello \
+  --region us-central1 --gpu 1 --gpu-type nvidia-l4 --no-gpu-zonal-redundancy \
+  --cpu 4 --memory 16Gi --max-instances 1 --no-allow-unauthenticated
+```
+
+```
+ERROR: (gcloud.run.deploy) ... You do not have quota for using GPUs without zonal redundancy.
+```
+
+Identical error to Jul 7. Quota increase eligibility is also unchanged on both quotas:
+
+```
+NvidiaL4GpuAllocNoZonalRedundancyPerProjectRegion: NOT_ENOUGH_USAGE_HISTORY
+MemAllocPerProjectRegion:                          NOT_ENOUGH_USAGE_HISTORY
+```
+
+So the "24-48 hour trust propagation" explanation is ruled out: three weeks on a paid
+account with real (CPU) Cloud Run usage, and both the auto-grant and the manual request
+paths remain closed. This looks like an account-trust tier gate, not a propagation lag.
+(The probe service was not created; nothing to clean up.)
