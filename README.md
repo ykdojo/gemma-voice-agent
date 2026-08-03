@@ -31,14 +31,17 @@ Everything runs in **one Google Cloud Run GPU service** (NVIDIA L4, scale-to-zer
 
 ## Why ADK?
 
-This project is simple enough that everything here could be hand-rolled, including calling the
-model API directly and managing conversation history ourselves. We use the
-[Agent Development Kit](https://adk.dev/) for a few practical reasons. First, it notably makes
-managing tool calls and their results easier: they live in the session history as first-class
-events in a defined format and get replayed into context on later turns. Second, the agent is
-model-agnostic, so swapping between Gemini and self-hosted Gemma is a one-line model config
-change, which is exactly the plan here. And if this grows to need evaluations or observability,
-ADK has a convenient path forward for both.
+This project is simple enough that everything here could be hand-rolled: the
+[GenAI SDK](https://googleapis.github.io/python-genai/) already makes direct model calls, tool
+calls, and in-process conversation history easy. We use the
+[Agent Development Kit](https://adk.dev/) for a few practical reasons. First, persistence:
+with ADK, conversation history, state, and memory can live in storage we manage ourselves,
+with backends swappable in a line, rather than only in the process or on the API's side.
+Second, the planned swap from Gemini to self-hosted Gemma: the GenAI SDK only speaks to
+Google's hosted APIs, while ADK can point the same agent at a self-hosted endpoint with a
+one-line model config change. And for the road from prototype
+to production, ADK has a convenient path forward for evaluation, observability, and error
+recovery.
 
 ## Demo & screenshot
 
