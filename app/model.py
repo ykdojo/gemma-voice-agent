@@ -11,9 +11,7 @@ events are appended automatically. Long-term memory is deliberately not used.
 import asyncio
 import os
 import threading
-import time
 
-from google import genai
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -23,9 +21,6 @@ import speech_client
 import tools
 
 MODEL_ID = os.environ.get("MODEL_ID", "gemini-3-flash-preview")
-# Transcription is a narrow ASR task: a cheaper model on a separate quota pool, so the
-# display-only transcription call never competes with the agent call for rate limit.
-TRANSCRIBE_MODEL = os.environ.get("TRANSCRIBE_MODEL", "gemini-2.5-flash")
 APP_NAME = "paper-voice-agent"
 
 SYSTEM_PROMPT = (
@@ -43,39 +38,15 @@ _agent = Agent(
 )
 _sessions = InMemorySessionService()
 _runner = Runner(agent=_agent, app_name=APP_NAME, session_service=_sessions)
-_genai_client = None
 
 
 def transcribe(audio: bytes, audio_mime: str = "audio/webm") -> str:
     """Speech to text, display-only: it fills the user bubble in the UI. The raw audio
-    (not this transcription) is what enters the agent turn and the conversation history."""
-    if speech_client.enabled():
-        return speech_client.transcribe(audio, audio_mime)
-    global _genai_client
-    if _genai_client is None:
-        _genai_client = genai.Client(
-            vertexai=True,
-            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
-        )
-    last_error = None
-    for attempt in range(2):
-        try:
-            response = _genai_client.models.generate_content(
-                model=TRANSCRIBE_MODEL,
-                contents=[
-                    types.Part.from_bytes(data=audio, mime_type=audio_mime),
-                    types.Part.from_text(
-                        text="Transcribe this audio verbatim. Reply with only the transcription, no quotes."
-                    ),
-                ],
-                config=types.GenerateContentConfig(temperature=0),
-            )
-            return (response.text or "").strip()
-        except Exception as e:  # noqa: BLE001 - retry once (e.g. transient 429), then give up
-            last_error = e
-            time.sleep(1.5 * (attempt + 1))
-    raise last_error
+    (not this transcription) is what enters the agent turn and the conversation history.
+
+    Whisper on the speech GPU service is the only backend; SPEECH_SERVICE_URL must be set.
+    """
+    return speech_client.transcribe(audio, audio_mime)
 
 
 # One long-lived event loop on a daemon thread for the session-service coroutines,

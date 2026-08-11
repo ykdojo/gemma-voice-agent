@@ -4,30 +4,28 @@ A voice customer-service agent that is fully self-hosted: ask a question by voic
 searches a knowledge base, and answers back in voice, with no external AI APIs. Built entirely on
 open-weights models. **Your data, your infra, your control.**
 
-> **Note: right now, the model is temporarily Gemini.** Cloud Run GPU quota is still pending
-> on this new account (see [docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md)), so instead of
-> a self-hosted model, the brain/ears are **Gemini via Vertex AI** for now, behind a swappable
-> interface ([`app/model.py`](app/model.py)). As soon as quota lands, it gets replaced with
-> **self-hosted Gemma 4 on a Cloud Run L4 GPU**, restoring the fully-private design described
-> here. The voice is interim too: Kokoro on CPU synthesizes at roughly real-time speed (too slow
-> without the GPU), so replies are currently spoken via **Cloud Text-to-Speech** behind a
-> switchable TTS backend, and Kokoro comes back as the self-hosted mouth on the GPU. Everything
-> else (chat UI, paper tools) already works as designed.
+> **Note: the ears and mouth are self-hosted now; the brain is the last hosted piece.**
+> Voice in (**Whisper** via vLLM) and voice out (**Kokoro**) run on our own Cloud Run GPU
+> service ([`gpu-speech/`](gpu-speech/)). The brain is still **Gemini** for the moment,
+> behind a swappable interface ([`app/model.py`](app/model.py)); it swaps to **self-hosted
+> Gemma 4** on the same GPU next (the July GPU-quota blocker in
+> [docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md) is resolved). The plan and progress
+> live in [docs/self-hosted-plan.md](docs/self-hosted-plan.md).
 
 The knowledge base in this demo is scientific papers, standing in for whatever *your* private data
 source is: an internal database, docs, or search engine.
 
 ## Architecture
 
-Everything runs in **one Google Cloud Run GPU service** (NVIDIA L4, scale-to-zero):
+Target: everything model-shaped on **one Cloud Run GPU service** (RTX 6000 Pro, scale-to-zero):
 
-| Stage | Component |
-|---|---|
-| Voice in + understanding | **Gemma 4 E4B**, native audio input: transcription + intent in one call |
-| Agent loop / tool use | Same Gemma instance, orchestrated with **ADK** |
-| Knowledge lookup | OpenAlex paper search (stand-in for your in-infra data source) |
-| Voice out | **Kokoro** (82M, CPU) |
-| Frontend | Basic chat interface: type or talk, replies come back as text and voice |
+| Stage | Component | Status |
+|---|---|---|
+| Voice in | **Whisper large-v3-turbo** (vLLM) | self-hosted, live |
+| Agent loop / tool use | **Gemma 4 31B** orchestrated with **ADK** | Gemini for now, swap next |
+| Knowledge lookup | OpenAlex paper search (stand-in for your in-infra data source) | live |
+| Voice out | **Kokoro** (82M) on the GPU | self-hosted, live |
+| Frontend | Basic chat interface: type or talk, replies come back as text and voice | live |
 
 ## Why ADK?
 
@@ -56,7 +54,7 @@ Early days. Building in the open, step by step:
 - [x] Step 1: verify a GPU container runs on Cloud Run, see [`hello-gpu/`](hello-gpu/)
 - [x] Web frontend: chat with both text and voice input, waveform playback bar for voice replies
 - [x] Paper-lookup tool (OpenAlex) wired into the agent loop (ADK migration: [#1](https://github.com/delfinadap/gemma-voice-agent/issues/1))
-- [x] Native audio input (voice note → answer), via Gemini for now
-- [x] Kokoro voice out (CPU)
-- [ ] Swap the interim Gemini brain for **Gemma 4 E4B on a Cloud Run L4 GPU** (blocked on
-      [GPU quota](docs/gpu-quota-blocker.md))
+- [x] Voice in and voice out self-hosted on a Cloud Run GPU: Whisper (vLLM) + Kokoro in
+      [`gpu-speech/`](gpu-speech/), the app's only speech path
+- [ ] Swap the interim Gemini brain for **self-hosted Gemma 4 31B** on the same GPU
+      (see [docs/self-hosted-plan.md](docs/self-hosted-plan.md))

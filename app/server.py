@@ -13,7 +13,7 @@ import traceback
 from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 
 import model
-import tts
+import speech_client
 
 app = Flask(__name__, static_folder="static")
 
@@ -83,7 +83,7 @@ def speak():
         if not text:
             return jsonify({"error": "no text"}), 400
         spoken = re.sub(r"[*#_`]+", "", text)  # markdown reads terribly aloud
-        voice_b64 = base64.b64encode(tts.synthesize(spoken)).decode()
+        voice_b64 = base64.b64encode(speech_client.synthesize(spoken)).decode()
         return jsonify({"audio_wav_base64": voice_b64})
     except Exception as e:  # noqa: BLE001
         traceback.print_exc()
