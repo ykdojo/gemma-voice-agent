@@ -118,3 +118,47 @@ Quota exceeded for total allowable count of GPUs per project per region.
 [docs](https://docs.cloud.google.com/run/docs/configuring/services/gpu), the first GPU
 deployment in a region automatically grants 3 GPUs of quota, no request needed. That never
 happened here, even after a GPU revision was created.
+
+## Update (2026-07-29): still blocked, 22 days after upgrading to paid
+
+Re-tested with a fresh new-service deploy using the prebuilt hello image (no build,
+fails at validation if quota is still 0):
+
+```sh
+gcloud run deploy gpu-quota-probe --image=us-docker.pkg.dev/cloudrun/container/hello \
+  --region us-central1 --gpu 1 --gpu-type nvidia-l4 --no-gpu-zonal-redundancy \
+  --cpu 4 --memory 16Gi --max-instances 1 --no-allow-unauthenticated
+```
+
+```
+ERROR: (gcloud.run.deploy) ... You do not have quota for using GPUs without zonal redundancy.
+```
+
+Identical error to Jul 7. Quota increase eligibility is also unchanged on both quotas:
+
+```
+NvidiaL4GpuAllocNoZonalRedundancyPerProjectRegion: NOT_ENOUGH_USAGE_HISTORY
+MemAllocPerProjectRegion:                          NOT_ENOUGH_USAGE_HISTORY
+```
+
+So the "24-48 hour trust propagation" explanation is ruled out: three weeks on a paid
+account with real (CPU) Cloud Run usage, and both the auto-grant and the manual request
+paths remain closed. This looks like an account-trust tier gate, not a propagation lag.
+(The probe service was not created; nothing to clean up.)
+
+### Full matrix re-run, same day
+
+Every path from the July repro, re-tested:
+
+| Path | Result |
+|------|--------|
+| New service, `--no-gpu-zonal-redundancy`, us-central1 | validation error, no quota (unchanged) |
+| New service, `--gpu-zonal-redundancy`, us-central1 | validation error, no quota (unchanged) |
+| New service, us-east4 / europe-west1 / asia-southeast1 / europe-west4 | identical validation error in all four (unchanged) |
+| Update `hello-gpu-mem` (already 4 CPU / 16 GiB) to add GPU | passes validation, fails at provisioning: `Quota exceeded for total allowable count of GPUs per project per region` (unchanged) |
+| Quotas API: new preference request | rejected as duplicate; the existing preference still shows `grantedValue: 0` |
+| `quotaIncreaseEligibility` on GPU + memory quotas | still `NOT_ENOUGH_USAGE_HISTORY` |
+
+All existing quota preferences on the project (GPU no-zonal ×3, GPU zonal, compute
+`GPUS-ALL-REGIONS`, memory) remain granted 0 or capped. `hello-gpu-mem` was restored
+to CPU-only afterward (revision 00009).
