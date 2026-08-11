@@ -17,7 +17,6 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-import speech_client
 import tools
 
 MODEL_ID = os.environ.get("MODEL_ID", "gemini-3-flash-preview")
@@ -40,15 +39,6 @@ _sessions = InMemorySessionService()
 _runner = Runner(agent=_agent, app_name=APP_NAME, session_service=_sessions)
 
 
-def transcribe(audio: bytes, audio_mime: str = "audio/webm") -> str:
-    """Speech to text, display-only: it fills the user bubble in the UI. The raw audio
-    (not this transcription) is what enters the agent turn and the conversation history.
-
-    Whisper on the speech GPU service is the only backend; SPEECH_SERVICE_URL must be set.
-    """
-    return speech_client.transcribe(audio, audio_mime)
-
-
 # One long-lived event loop on a daemon thread for the session-service coroutines,
 # instead of building and tearing down a fresh loop on every request.
 _loop = asyncio.new_event_loop()
@@ -68,21 +58,13 @@ def _ensure_session(user_id: str, session_id: str) -> None:
     asyncio.run_coroutine_threadsafe(go(), _loop).result()
 
 
-def reply_stream(
-    text: str | None = None,
-    audio: bytes | None = None,
-    audio_mime: str = "audio/webm",
-    session_id: str = "default",
-):
-    """Streaming turn: yields dicts. type=status (tool running), delta (text chunk),
-    done (authoritative full text). Falls back to one done event if streaming is unavailable."""
-    parts = []
-    if audio:
-        parts.append(types.Part.from_bytes(data=audio, mime_type=audio_mime))
-    if text:
-        parts.append(types.Part.from_text(text=text))
-    if not parts:
-        raise ValueError("need text or audio")
+def reply_stream(text: str, session_id: str = "default"):
+    """Streaming turn: text in (voice notes arrive here already transcribed), yields dicts.
+    type=status (tool running), delta (text chunk), done (authoritative full text).
+    Falls back to one done event if streaming is unavailable."""
+    if not text or not text.strip():
+        raise ValueError("need text")
+    parts = [types.Part.from_text(text=text)]
 
     user_id = session_id
     _ensure_session(user_id, session_id)

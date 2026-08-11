@@ -1,8 +1,11 @@
-"""HTTP server: chat frontend + three endpoints.
+"""HTTP server: chat frontend + two endpoints.
 
-- POST /chat: text or audio in; streams the answer as NDJSON events (meta, status, delta, done)
-- POST /transcribe: audio in, transcription out (display-only; independent of /chat)
-- POST /speak: text in, WAV audio out
+- POST /chat: text or audio in; streams the answer as NDJSON events. Audio is
+  transcribed (Whisper on the speech GPU service) exactly once: the transcript
+  is emitted as an early `transcript` event for the UI bubble, and the same
+  text (never the raw audio) is what the agent receives.
+  Event order: meta, [transcript], [status...], delta..., done.
+- POST /speak: text in, WAV audio out (Kokoro on the speech GPU service)
 """
 import base64
 import json
@@ -49,9 +52,15 @@ def chat():
     def generate():
         yield json.dumps({"type": "meta", "speech_available": os.environ.get("DISABLE_TTS") != "1"}) + "\n"
         try:
-            for event in model.reply_stream(
-                text=text, audio=audio, audio_mime=audio_mime, session_id=session_id
-            ):
+            message = text
+            if audio:
+                transcript = speech_client.transcribe(audio, audio_mime)
+                yield json.dumps({"type": "transcript", "text": transcript}) + "\n"
+                message = f"{text}\n{transcript}" if text else transcript
+            if not message or not message.strip():
+                yield json.dumps({"type": "error", "error": "I couldn't hear that - please try again."}) + "\n"
+                return
+            for event in model.reply_stream(text=message, session_id=session_id):
                 yield json.dumps(event) + "\n"
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
@@ -62,18 +71,6 @@ def chat():
         mimetype="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
-
-
-@app.post("/transcribe")
-def transcribe():
-    try:
-        _, audio, audio_mime, _ = _parse_request()
-        if not audio:
-            return jsonify({"error": "no audio"}), 400
-        return jsonify({"transcription": model.transcribe(audio, audio_mime)})
-    except Exception as e:  # noqa: BLE001
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
 
 
 @app.post("/speak")

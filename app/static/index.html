@@ -191,12 +191,15 @@ function mdLite(text) {
   }).join("\n");
 }
 
-async function chatRequest(body) {
+async function chatRequest(body, userBubble) {
   const pending = add("bot", null);
   let buffer = "";
   let speech = false;
   const handle = (ev) => {
     if (ev.type === "meta") speech = ev.speech_available;
+    else if (ev.type === "transcript") {
+      if (userBubble) userBubble.textContent = ev.text || "Voice message";
+    }
     else if (ev.type === "status") pending.innerHTML = DOTS + " " + ev.status;
     else if (ev.type === "delta") { buffer += ev.text; pending.textContent = buffer; }
     else if (ev.type === "done") {
@@ -232,18 +235,6 @@ async function chatRequest(body) {
     }
   } catch (e) {
     pending.textContent = "Request failed: " + e;
-  }
-}
-
-async function transcribeRequest(blob, bubble) {
-  try {
-    const fd = new FormData();
-    fd.append("audio", blob, "question.webm");
-    const resp = await fetch("/transcribe", { method: "POST", body: fd });
-    const data = await resp.json();
-    bubble.textContent = data.transcription || "Voice message";
-  } catch (e) {
-    bubble.textContent = "Voice message";
   }
 }
 
@@ -407,16 +398,14 @@ micBtn.addEventListener("click", async () => {
     if (discardTake) return;
     const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
 
-    // Two independent requests: transcription fills the user bubble,
-    // the agent turn streams into the bot bubble.
+    // One request: /chat transcribes once, streams the transcript back to fill
+    // the user bubble, then streams the agent's answer into the bot bubble.
     const bubble = add("user", "");
     bubble.innerHTML = DOTS + " Transcribing";
-    transcribeRequest(blob, bubble);
-
     const fd = new FormData();
     fd.append("audio", blob, "question.webm");
     fd.append("session_id", SESSION_ID);
-    chatRequest(fd);
+    chatRequest(fd, bubble);
   };
   recorder.start();
   micBtn.classList.add("recording");

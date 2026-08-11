@@ -44,14 +44,16 @@ resp=$(curl -sS --max-time 180 -X POST "$BASE/chat" \
 echo "$resp" | grep -q '"type": *"status"' && ok "tool chat: status event seen" || bad "tool chat: no status event"
 echo "$resp" | grep -q '"type": *"done"' && ok "tool chat: done event seen" || bad "tool chat: no done event"
 
-# --- 3. audio path ----------------------------------------------------------
+# --- 3. audio path: one request, transcript event in the /chat stream -------
 if [ -n "$WAV" ] && [ -f "$WAV" ]; then
-  t=$(curl -sS --max-time 120 -X POST "$BASE/transcribe" \
-    -F "audio=@$WAV;type=audio/wav" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("transcription",""))')
-  echo "$t" | grep -qi "sleep" && ok "transcribe: heard the question ($t)" || bad "transcribe: got '$t'"
-
   resp=$(curl -sS --max-time 180 -X POST "$BASE/chat" \
     -F "audio=@$WAV;type=audio/wav" -F "session_id=$SESSION-audio")
+  t=$(echo "$resp" | python3 -c '
+import json,sys
+for line in sys.stdin:
+    e=json.loads(line)
+    if e.get("type")=="transcript": print(e.get("text","")); break')
+  echo "$t" | grep -qi "sleep" && ok "audio chat: transcript event heard the question ($t)" || bad "audio chat: transcript was '$t'"
   echo "$resp" | grep -q '"type": *"done"' && ok "audio chat: done event seen" || bad "audio chat: no done event"
   echo "$resp" | grep -q '"type": *"error"' && bad "audio chat: error event in stream" || ok "audio chat: no error events"
 else
