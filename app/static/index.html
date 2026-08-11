@@ -159,7 +159,11 @@ const micBtn = document.getElementById("mic");
 const meter = document.getElementById("levelmeter");
 // A new conversation on every page load: the ID lives only in this page instance,
 // so a refresh always starts clean and can never see an older session's history.
-const SESSION_ID = crypto.randomUUID();
+// crypto.randomUUID only exists on secure contexts (HTTPS/localhost), so fall back
+// to a random string on plain-HTTP origins like LAN-IP testing.
+const SESSION_ID = crypto.randomUUID
+  ? crypto.randomUUID()
+  : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
 const DOTS = '<span class="dots"><span></span><span></span><span></span></span>';
 
 function add(cls, content) {
