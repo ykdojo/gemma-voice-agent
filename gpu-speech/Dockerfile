@@ -12,7 +12,7 @@ RUN chmod +x start.sh
 # Bake the (small, ungated) model weights into the image so cold starts skip
 # the Hugging Face download: Whisper turbo ~1.6GB, Kokoro ~330MB.
 ENV HF_HOME=/models
-RUN python -c "from huggingface_hub import snapshot_download; \
+RUN python3 -c "from huggingface_hub import snapshot_download; \
     snapshot_download('openai/whisper-large-v3-turbo'); \
     snapshot_download('hexgrad/Kokoro-82M')"
 
