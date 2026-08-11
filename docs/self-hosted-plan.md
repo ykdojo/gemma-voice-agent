@@ -60,6 +60,15 @@ stays as the brain until the last step.
    Gemini and Cloud TTS code paths, update README (the "temporarily Gemini"
    note finally dies).
 
+## Progress
+
+- 2026-08-11: cleanup done and verified (9/9 smoke parity with main); the
+  crypto.randomUUID plain-HTTP bug found and fixed; gpu-speech service
+  deployed (speech-gpu in adk-bq-mcp-10524, RTX 6000 Pro) and the dev app
+  (paper-voice-agent-dev) flipped to it: 9/9 smoke with Whisper ears and
+  Kokoro mouth live, Gemini still the brain. Remaining: the 31B brain joins
+  the box, transcript-in-stream refactor, retire hosted paths.
+
 ## Open questions to settle during 3
 
 - webm/opus from the browser: does vLLM's Whisper endpoint decode it, or do we
