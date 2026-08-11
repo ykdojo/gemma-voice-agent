@@ -10,6 +10,7 @@ events are appended automatically. Long-term memory is deliberately not used.
 """
 import asyncio
 import os
+import threading
 import time
 
 from google import genai
@@ -45,8 +46,8 @@ _genai_client = None
 
 
 def transcribe(audio: bytes, audio_mime: str = "audio/webm") -> str:
-    """Speech to text with the same model's native audio input. Shown in the UI, and the
-    transcription (not the raw audio) is what enters the conversation history."""
+    """Speech to text, display-only: it fills the user bubble in the UI. The raw audio
+    (not this transcription) is what enters the agent turn and the conversation history."""
     global _genai_client
     if _genai_client is None:
         _genai_client = genai.Client(
@@ -74,6 +75,12 @@ def transcribe(audio: bytes, audio_mime: str = "audio/webm") -> str:
     raise last_error
 
 
+# One long-lived event loop on a daemon thread for the session-service coroutines,
+# instead of building and tearing down a fresh loop on every request.
+_loop = asyncio.new_event_loop()
+threading.Thread(target=_loop.run_forever, daemon=True).start()
+
+
 def _ensure_session(user_id: str, session_id: str) -> None:
     async def go():
         existing = await _sessions.get_session(
@@ -84,7 +91,7 @@ def _ensure_session(user_id: str, session_id: str) -> None:
                 app_name=APP_NAME, user_id=user_id, session_id=session_id
             )
 
-    asyncio.run(go())
+    asyncio.run_coroutine_threadsafe(go(), _loop).result()
 
 
 def reply_stream(
@@ -138,33 +145,3 @@ def reply_stream(
             elif event.is_final_response():
                 final = chunk
     yield {"type": "done", "text": final or streamed or "Sorry, I could not come up with an answer."}
-
-
-def reply(
-    text: str | None = None,
-    audio: bytes | None = None,
-    audio_mime: str = "audio/webm",
-    session_id: str = "default",
-) -> str:
-    """One turn: text or audio in, assistant text out. Tool calls run automatically, and the
-    session's earlier turns are included as context."""
-    parts = []
-    if audio:
-        parts.append(types.Part.from_bytes(data=audio, mime_type=audio_mime))
-    if text:
-        parts.append(types.Part.from_text(text=text))
-    if not parts:
-        raise ValueError("need text or audio")
-
-    user_id = session_id  # one user per browser session; no cross-session identity yet
-    _ensure_session(user_id, session_id)
-
-    final = None
-    for event in _runner.run(
-        user_id=user_id,
-        session_id=session_id,
-        new_message=types.Content(role="user", parts=parts),
-    ):
-        if event.is_final_response() and event.content and event.content.parts:
-            final = "".join(p.text or "" for p in event.content.parts if p.text)
-    return final or "Sorry, I could not come up with an answer."

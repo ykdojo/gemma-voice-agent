@@ -25,6 +25,8 @@ Kokoro ungated on Hugging Face. Nothing gated, no HF license flow.
 - One transcription per turn: /chat transcribes once and emits the transcript
   as an early NDJSON event; the separate /transcribe request (which duplicated
   the work) goes away.
+- /chat keeps taking text or voice, as today: text goes straight to the agent
+  (no transcript event), audio goes through Whisper first.
 - No ADK graph for the interactive path: ADK 2 graphs don't support live
   streaming, and the streamed deltas are the UX. Agent + Runner + SSE stays.
 - Keep TTS behind /speak, after the text: audio output is slower than text,
