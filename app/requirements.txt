@@ -4,3 +4,4 @@ google-genai>=1.16
 google-adk>=1.0
 google-cloud-texttospeech>=2.16
 numpy>=1.26
+requests>=2.31

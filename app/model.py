@@ -19,6 +19,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
+import speech_client
 import tools
 
 MODEL_ID = os.environ.get("MODEL_ID", "gemini-3-flash-preview")
@@ -48,6 +49,8 @@ _genai_client = None
 def transcribe(audio: bytes, audio_mime: str = "audio/webm") -> str:
     """Speech to text, display-only: it fills the user bubble in the UI. The raw audio
     (not this transcription) is what enters the agent turn and the conversation history."""
+    if speech_client.enabled():
+        return speech_client.transcribe(audio, audio_mime)
     global _genai_client
     if _genai_client is None:
         _genai_client = genai.Client(

@@ -66,6 +66,10 @@ def _cloudtts_synthesize(text: str) -> bytes:
 
 def synthesize(text: str) -> bytes:
     """Render text to a mono 24kHz 16-bit WAV using the configured backend."""
+    if BACKEND == "gpu":
+        import speech_client
+
+        return speech_client.synthesize(text)
     if BACKEND == "cloudtts":
         return _cloudtts_synthesize(text)
     return _kokoro_synthesize(text)
