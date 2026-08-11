@@ -34,7 +34,14 @@ Kokoro ungated on Hugging Face. Nothing gated, no HF license flow.
 - ADK stays; the model swap is LiteLlm(base_url=localhost vLLM), the pattern
   validated end to end in the cloud-run-adk-bq-mcp codelab.
 
-## Order of work
+## Order of work (revised 2026-08-11: ears + mouth first, independently)
+
+The /transcribe and /speak paths swap to GPU equivalents independently of the
+brain, so they go first as one combined "speech" GPU service (Whisper via vLLM
++ Kokoro in the app process). That proves the two-CUDA-processes-on-one-GPU
+pattern with small models before the 31B ever enters the picture, and Gemini
+stays as the brain until the last step.
+
 
 1. **Cleanup first** (this branch, no behavior change):
    - Collapse reply() into reply_stream() (duplicated turn logic).
