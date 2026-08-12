@@ -283,6 +283,15 @@ function newSessionId() {
 }
 let SESSION_ID = newSessionId();
 
+// Each conversation owns a URL (?c=<id>): refresh lands back in it, and links
+// to a conversation are shareable with yourself across devices.
+function setUrl(id) {
+  history.replaceState(null, "", "?c=" + encodeURIComponent(id));
+}
+
+const EMPTY_HINT =
+  'Ask a question by text or voice. For example: "What are the practical benefits of daily meditation?"';
+
 function showEmptyHint(text) {
   const hint = document.createElement("div");
   hint.className = "empty-hint";
@@ -540,8 +549,9 @@ function closeDrawer() { drawer.classList.remove("open"); backdrop.classList.rem
 
 document.getElementById("new-convo").addEventListener("click", () => {
   SESSION_ID = newSessionId();
+  setUrl(SESSION_ID);
   chat.innerHTML = "";
-  showEmptyHint("A fresh conversation. Ask a question by text or voice.");
+  showEmptyHint(EMPTY_HINT);
   closeDrawer();
   markActive();
 });
@@ -630,6 +640,7 @@ function startRename(row, c) {
 
 async function switchTo(id) {
   SESSION_ID = id;
+  setUrl(id);
   chat.innerHTML = "";
   closeDrawer();
   markActive();
@@ -641,7 +652,7 @@ async function switchTo(id) {
     if (SESSION_ID !== id) return;  // user already switched again
     loading.remove();
     if (!data.messages.length) {
-      showEmptyHint("Nothing here yet. Ask a question by text or voice.");
+      showEmptyHint(EMPTY_HINT);
       return;
     }
     for (const m of data.messages) {
@@ -739,6 +750,15 @@ micBtn.addEventListener("click", async () => {
   recorder.start();
   micBtn.classList.add("recording");
 });
+
+// Boot: land in the conversation the URL names, otherwise start fresh.
+const urlConvo = new URLSearchParams(location.search).get("c");
+if (urlConvo) {
+  switchTo(urlConvo);
+} else {
+  setUrl(SESSION_ID);
+  showEmptyHint(EMPTY_HINT);
+}
 </script>
 </body>
 </html>

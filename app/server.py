@@ -8,6 +8,7 @@
 - POST /speak: text in, WAV audio out (Kokoro on the speech GPU service)
 """
 import base64
+import hashlib
 import json
 import os
 import re
@@ -210,6 +211,24 @@ def rewind():
     return jsonify({"ok": True})
 
 
+_voice_bucket = None
+
+
+def _voice_cache():
+    """GCS bucket for rendered speech, or None when not configured. Content-
+    addressed (hash of the spoken text), so repeats are cache hits that skip
+    synthesis entirely. Best-effort: any storage failure falls back to synth."""
+    global _voice_bucket
+    name = os.environ.get("VOICE_CACHE_BUCKET")
+    if not name:
+        return None
+    if _voice_bucket is None:
+        from google.cloud import storage
+
+        _voice_bucket = storage.Client().bucket(name)
+    return _voice_bucket
+
+
 @app.post("/speak")
 def speak():
     try:
@@ -217,8 +236,24 @@ def speak():
         if not text:
             return jsonify({"error": "no text"}), 400
         spoken = re.sub(r"[*#_`]+", "", text)  # markdown reads terribly aloud
-        voice_b64 = base64.b64encode(speech_client.synthesize(spoken)).decode()
-        return jsonify({"audio_wav_base64": voice_b64})
+        wav, blob = None, None
+        try:
+            bucket = _voice_cache()
+            if bucket is not None:
+                key = "tts/" + hashlib.sha256(spoken.encode()).hexdigest()[:32] + ".wav"
+                blob = bucket.blob(key)
+                if blob.exists():
+                    wav = blob.download_as_bytes()
+        except Exception:  # noqa: BLE001
+            wav, blob = None, None
+        if wav is None:
+            wav = speech_client.synthesize(spoken)
+            if blob is not None:
+                try:
+                    blob.upload_from_string(wav, content_type="audio/wav")
+                except Exception:  # noqa: BLE001
+                    pass
+        return jsonify({"audio_wav_base64": base64.b64encode(wav).decode()})
     except Exception as e:  # noqa: BLE001
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
