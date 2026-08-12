@@ -474,6 +474,23 @@ async function requestSpeech(bubble, text) {
   }
 }
 
+// Replayed history: the voice bar appears immediately but fetches its audio
+// on first play (a cache hit in the voice bucket when this reply was spoken
+// before; a quick re-synthesis otherwise). User audio is never stored.
+function attachReplayVoice(bubble, text) {
+  const bar = document.createElement("div");
+  bar.className = "voice";
+  bar.innerHTML = '<button type="button" aria-label="Play">' + PLAY_SVG +
+    '</button><span class="time">Voice reply</span>';
+  bar.querySelector("button").addEventListener("click", async () => {
+    bar.remove();
+    await requestSpeech(bubble, text);
+    const play = bubble.querySelector(".voice button");
+    if (play) play.click();
+  }, { once: true });
+  bubble.appendChild(bar);
+}
+
 async function attachVoiceBar(bubble, b64) {
   const bar = document.createElement("div");
   bar.className = "voice";
@@ -657,7 +674,10 @@ async function switchTo(id) {
     }
     for (const m of data.messages) {
       const div = add(m.role === "user" ? "user" : "bot", m.text);
-      if (m.role !== "user") div.innerHTML = mdLite(m.text);
+      if (m.role !== "user") {
+        div.innerHTML = mdLite(m.text);
+        attachReplayVoice(div, m.text);
+      }
     }
   } catch (e) {
     loading.remove();
