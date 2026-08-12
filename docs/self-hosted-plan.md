@@ -68,6 +68,14 @@ stays as the brain until the last step.
   (paper-voice-agent-dev) flipped to it: 9/9 smoke with Whisper ears and
   Kokoro mouth live, Gemini still the brain. Remaining: the 31B brain joins
   the box, transcript-in-stream refactor, retire hosted paths.
+- 2026-08-11 (later): hosted voice paths deleted (single voice path through
+  gpu-speech; tts.py gone, /transcribe gone). Transcription-first landed:
+  /chat transcribes once, streams a transcript event for the UI bubble, and
+  the brain receives text only, so the model swap is now text-in/text-out.
+  OpenAlex tool calls retry 5xx and degrade gracefully. Smoke suite updated
+  and green (9/9), UI verified in a real browser. Next: point the brain at
+  self-hosted Gemma 4 31B via LiteLlm (the codelab's gemma4-rtx-vllm-codelab
+  service still runs in adk-bq-mcp-10524).
 
 ## Open questions to settle during 3
 

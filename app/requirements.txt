@@ -2,4 +2,5 @@ flask>=3.0
 gunicorn>=22.0
 google-genai>=1.16
 google-adk>=1.0
+litellm
 requests>=2.31
