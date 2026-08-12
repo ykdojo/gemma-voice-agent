@@ -1,29 +1,26 @@
 # Testing
 
 How this app is tested, layer by layer. Every layer runs against a base URL,
-so the same checks work locally, against a deployed service, and on either
-model substrate (self-hosted GPU or hosted).
+so the same checks work locally and against a deployed service.
 
 ## Running the app locally
 
 ```sh
 cd app
 GOOGLE_CLOUD_PROJECT=<project> \
-GOOGLE_CLOUD_LOCATION=global \
-GOOGLE_GENAI_USE_ENTERPRISE=TRUE \
 AGENT_ENGINE_ID=<engine id> \
+MODEL_API_BASE=<gpu box url> \
+SPEECH_SERVICE_URL=<gpu box url> \
 PORT=8080 \
 uv run --with-requirements requirements.txt python server.py
 ```
 
-- Substrate: add `MODEL_API_BASE` and `SPEECH_SERVICE_URL` (both the GPU box
-  URL) for the self-hosted substrate; omit them for hosted mode.
+- `MODEL_API_BASE` and `SPEECH_SERVICE_URL` (both the GPU box URL) are
+  required - all three models are served by the box, there is no hosted mode.
 - Omit `AGENT_ENGINE_ID` for throwaway in-memory sessions.
 - Auth locally comes from ADC (`gcloud auth application-default login`).
-  Two macOS quirks: set `SSL_CERT_FILE` to certifi's bundle (framework Python
-  has no system certs, breaks the OpenAlex tool), and make sure the ADC quota
-  project has billing (`gcloud auth application-default set-quota-project`),
-  or hosted TTS/transcription calls 403.
+  One macOS quirk: set `SSL_CERT_FILE` to certifi's bundle (framework Python
+  has no system certs, which breaks the OpenAlex tool).
 
 ## Layer 1: protocol smoke suite (run on every change)
 
@@ -80,10 +77,11 @@ Manual or driven via browser automation:
   clears on the first message
 - reply quality: no chain-of-thought text in any reply (thought parts are
   filtered; a leak looks like "The user wants me to...")
-- cold GPU (self-hosted substrate only): a cold page load shows the wake
-  overlay with elapsed timer, which dismisses when /status reports ready
+- cold GPU: a cold page load shows the wake banner with the server-anchored
+  elapsed timer; history stays browsable and the composer is disabled until
+  /status reports ready
 
-## Layer 4: cold-start UX (self-hosted substrate, on demand - costs a GPU boot)
+## Layer 4: cold-start UX (on demand - costs a GPU boot)
 
 ```sh
 GPU_PROJECT=<project> test/cold.sh <app url> <wav>
@@ -103,7 +101,7 @@ A failed turn must surface as an `error` event (with `invocation_id` and
 
 ```sh
 # 1. Force a model failure; the stream must end in a retryable error event:
-MODEL_ID=gemini-nonexistent-model  # plus the usual env
+MODEL_ID=bogus-model  # plus the usual env; vLLM rejects the unknown id
 python -c "import model; print(list(model.reply_stream('hi', session_id='t1', user_id='t'))[-1])"
 
 # 2. Cross-process resume: fail a turn (broken MODEL_ID) in one process, then
@@ -133,8 +131,8 @@ tool, two that must not (greeting, capability question), one ambiguity case
 that should ask for clarification. Scored by an LLM judge
 (final_response_match_v2, threshold 0.7, judge stays Gemini) against
 rubric-style references; exact tool-args matching and ROUGE are deliberately
-not used (brittle across models). The candidate model follows the app env
-vars, so run it once per substrate and compare. Never gate on the `adk eval`
+not used (brittle across models). The candidate is the app's agent against
+the GPU box; the judge model is test infrastructure only. Never gate on the `adk eval`
 CLI exit code (always 0 in ADK 2.4).
 
 ## Layer 7: observability spot-check

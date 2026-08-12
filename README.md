@@ -57,8 +57,8 @@ calls, and in-process conversation history easy. We use the
 [Agent Development Kit](https://adk.dev/) for a few practical reasons. First, persistence:
 with ADK, conversation history, state, and memory can live in storage we manage ourselves,
 with backends swappable in a line, rather than only in the process or on the API's side.
-Second, the planned swap from Gemini to self-hosted Gemma: the GenAI SDK only speaks to
-Google's hosted APIs, while ADK can point the same agent at a self-hosted endpoint with a
+Second, self-hosting: the GenAI SDK only speaks to
+Google's hosted APIs, while ADK points the same agent at our own vLLM endpoint with a
 one-line model config change. And for the road from prototype
 to production, ADK has a convenient path forward for evaluation, observability, and error
 recovery.
@@ -80,24 +80,12 @@ Early days. Building in the open, step by step:
       Kokoro in [`gpu-speech/`](gpu-speech/), the app's only speech path
 - [x] Interim Gemini brain swapped for **self-hosted Gemma 4 31B**, merged into the same
       GPU box as the speech models
-- [x] Cold-start UX: wake-on-page-load, status overlay, in-stream waking events, retries
+- [x] Cold-start UX: wake-on-page-load, wake banner with server-anchored timer,
+      in-stream waking events, retries
+- [x] **Production layer**: persistent conversations (Agent Engine Sessions) with
+      a drawer UI and per-conversation URLs, Google sign-in via IAP, error
+      recovery with invocation resume, Cloud Trace observability, an LLM-judged
+      eval harness, and a GCS cache for rendered speech
 
-## Next steps: prototype to production
-
-The prototype works end to end. The next stage leans on the parts of ADK built
-for exactly this transition:
-
-- **Sessions that survive.** Conversation history and state currently live in
-  memory and die with the instance. ADK's session service makes the storage
-  backend swappable in a line, so conversations persist and can be resumed.
-- **Sign in with Google** (IAP), so each user gets their own conversations
-  without building a login system.
-- **Multiple conversations.** List past conversations, switch between them,
-  delete them, rename them - likely behind a simple hamburger menu.
-- **Observability.** Tracing for every turn: which tools ran, what the model
-  saw, where the time went.
-- **Error recovery.** Resume cleanly from a broken or interrupted turn.
-- **Evaluation.** Regression-test the agent's answers, not just the protocol.
-
-Upcoming writeup: *From prototype to production: a self-hosted voice agent on
+Writeup in progress: *From prototype to production: a self-hosted voice agent on
 a single Cloud Run GPU*.

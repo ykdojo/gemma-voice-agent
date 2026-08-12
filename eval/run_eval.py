@@ -4,10 +4,10 @@ Run: cd eval && uv run --with-requirements ../app/requirements.txt \
        --with pytest,pytest-asyncio,rouge-score --with "google-adk[gcp,eval]>=2.4" python -m pytest run_eval.py -s
 
 Judges with an LLM (final_response_match_v2), so results carry model
-nondeterminism; num_runs smooths it. The candidate model follows the app's env
-vars (MODEL_API_BASE set = self-hosted Gemma; unset = hosted Gemini), so the
-same harness baselines both substrates. Do not gate on `adk eval` (its CLI
-exits 0 even on failure in ADK 2.4); this pytest asserts.
+nondeterminism; num_runs smooths it. The candidate is the app's agent
+(self-hosted Gemma; MODEL_API_BASE required). The judge model is separate
+test infrastructure, not part of the product. Do not gate on `adk eval` (its
+CLI exits 0 even on failure in ADK 2.4); this pytest asserts.
 """
 import os
 import pathlib

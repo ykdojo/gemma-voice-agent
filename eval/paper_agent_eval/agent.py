@@ -1,8 +1,7 @@
 """Eval shim: exposes the app's Agent as root_agent, per ADK eval convention.
 
-The eval framework builds its own in-process Runner around this agent, so the
-model substrate follows the same env vars as the app (MODEL_API_BASE set =
-self-hosted Gemma; unset = hosted Gemini).
+The eval framework builds its own in-process Runner around this agent;
+MODEL_API_BASE (the GPU box) is required, same as the app.
 """
 import os
 import sys

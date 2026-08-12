@@ -1,9 +1,7 @@
-"""The agent brain, behind one narrow interface so the serving substrate is a
-deploy-time choice. Default: self-hosted Gemma 4 on our Cloud Run GPU, reached
-through ADK's LiteLlm wrapper against vLLM's OpenAI-compatible API
-(MODEL_API_BASE set). Portability mode: hosted Gemini through the Cloud
-account (MODEL_API_BASE unset) - same agent, same tools, zero code changes.
-Input is always text; voice notes are transcribed before they get here.
+"""The agent brain: Gemma 4 31B, self-hosted on our Cloud Run GPU box, reached
+through ADK's LiteLlm wrapper against vLLM's OpenAI-compatible API. No hosted
+AI APIs anywhere in the path. Input is always text; voice notes are transcribed
+(on the same box) before they get here.
 
 ADK sessions carry the conversation history: each browser session maps to an ADK session, the
 Runner assembles prior turns (including past tool calls and results) into context, and new
@@ -26,9 +24,9 @@ from google.genai import types
 import tools
 
 MODEL_API_BASE = os.environ.get("MODEL_API_BASE", "").rstrip("/")
-MODEL_ID = os.environ.get(
-    "MODEL_ID", "google/gemma-4-31B-it" if MODEL_API_BASE else "gemini-3-flash-preview"
-)
+if not MODEL_API_BASE:
+    raise RuntimeError("MODEL_API_BASE must point at the GPU box (vLLM OpenAI API)")
+MODEL_ID = os.environ.get("MODEL_ID", "google/gemma-4-31B-it")
 APP_NAME = "paper-voice-agent"
 
 
@@ -67,7 +65,7 @@ SYSTEM_PROMPT = (
 
 _agent = Agent(
     name="paper_agent",
-    model=_self_hosted_model() if MODEL_API_BASE else MODEL_ID,
+    model=_self_hosted_model(),
     instruction=SYSTEM_PROMPT,
     tools=[tools.search_papers, tools.get_paper],
 )
