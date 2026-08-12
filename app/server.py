@@ -96,7 +96,10 @@ def status():
     speech_ok = speech_client.awake(speech_client.BASE) if speech_client.enabled() else True
     if not (model_ok and speech_ok):
         _wake_gpus()
-    return jsonify({"model": model_ok, "speech": speech_ok, "ready": model_ok and speech_ok})
+    return jsonify({
+        "model": model_ok, "speech": speech_ok, "ready": model_ok and speech_ok,
+        "waking_seconds": speech_client.waking_seconds(),
+    })
 
 
 @app.get("/conversations")

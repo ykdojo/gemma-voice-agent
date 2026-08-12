@@ -55,6 +55,16 @@ def _token(audience: str | None = None) -> str:
 
 _wakers: dict[str, threading.Thread] = {}
 _wakers_lock = threading.Lock()
+_wake_started: dict[str, float] = {}
+
+
+def waking_seconds() -> int:
+    """Seconds since the oldest still-active wake began (0 = not waking).
+    Anchors the frontend's elapsed display so a page refresh doesn't reset it."""
+    with _wakers_lock:
+        starts = [_wake_started[b] for b, t in _wakers.items()
+                  if t.is_alive() and b in _wake_started]
+    return int(time.time() - min(starts)) if starts else 0
 
 
 def ensure_waking(base: str, path: str = "/health") -> None:
@@ -74,6 +84,7 @@ def ensure_waking(base: str, path: str = "/health") -> None:
         finally:
             with _wakers_lock:
                 _wakers.pop(base, None)
+                _wake_started.pop(base, None)
 
     with _wakers_lock:
         t = _wakers.get(base)
@@ -81,6 +92,7 @@ def ensure_waking(base: str, path: str = "/health") -> None:
             return
         t = threading.Thread(target=_hold, daemon=True)
         _wakers[base] = t
+        _wake_started.setdefault(base, time.time())
         t.start()
 
 

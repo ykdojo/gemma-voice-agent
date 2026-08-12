@@ -230,16 +230,17 @@ gate.innerHTML =
   '<div class="card">' +
   '<span class="dots"><span></span><span></span><span></span></span>' +
   "<h2>Waking up the GPU</h2>" +
-  "<p>The models sleep when idle. Spinning them back up takes about ten minutes.</p>" +
+  "<p>The models sleep when idle. Spinning them back up can take up to 20 minutes.</p>" +
   '<div class="elapsed"></div></div>';
 document.body.appendChild(gate);
 
 (async function gpuGate() {
-  const started = Date.now();
-  // The elapsed display ticks every second; readiness polling stays at 5s.
+  // Elapsed display is anchored to the server's wake-start time (survives page
+  // refreshes) and ticks locally every second between /status polls.
+  let base = 0, baseAt = Date.now();
   const tick = setInterval(() => {
-    if (!gate.classList.contains("show")) return;
-    const secs = Math.round((Date.now() - started) / 1000);
+    if (!gate.classList.contains("show") || !base) return;
+    const secs = base + Math.round((Date.now() - baseAt) / 1000);
     gate.querySelector(".elapsed").textContent =
       Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0");
   }, 1000);
@@ -247,6 +248,7 @@ document.body.appendChild(gate);
     try {
       const s = await (await fetch("/status")).json();
       if (s.ready) break;
+      if (s.waking_seconds) { base = s.waking_seconds; baseAt = Date.now(); }
       gate.classList.add("show");
     } catch (e) { /* app itself unreachable; keep trying */ }
     await new Promise((r) => setTimeout(r, 5000));
