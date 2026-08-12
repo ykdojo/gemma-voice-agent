@@ -153,6 +153,13 @@
     padding: 18px 12px; text-align: center;
     color: var(--text-dim); font-size: 13px;
   }
+  .drawer-foot { padding: 10px 14px; border-top: 1px solid var(--border); }
+  #signout {
+    width: 100%; border: 1px solid var(--border); background: transparent;
+    color: var(--text-dim); border-radius: 8px; padding: 7px 12px;
+    font-size: 12.5px; cursor: pointer;
+  }
+  #signout:hover { background: var(--bg); color: var(--text); }
   .convo {
     display: flex; align-items: center; gap: 6px;
     padding: 9px 10px; border-radius: 9px; cursor: pointer; font-size: 13.5px;
@@ -179,6 +186,9 @@
     <button id="new-convo">New</button>
   </div>
   <div id="convo-list"></div>
+  <div class="drawer-foot">
+    <button id="signout">Sign out</button>
+  </div>
 </aside>
 <header>
   <button id="menu-btn" title="Conversations" aria-label="Conversations">
@@ -563,6 +573,11 @@ document.getElementById("menu-btn").addEventListener("click", () => {
 });
 backdrop.addEventListener("click", closeDrawer);
 function closeDrawer() { drawer.classList.remove("open"); backdrop.classList.remove("open"); }
+
+// IAP owns the session; this reserved URL clears its cookie and re-prompts sign-in.
+document.getElementById("signout").addEventListener("click", () => {
+  location.href = "/?gcp-iap-mode=CLEAR_LOGIN_COOKIE";
+});
 
 document.getElementById("new-convo").addEventListener("click", () => {
   SESSION_ID = newSessionId();
