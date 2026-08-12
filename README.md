@@ -4,28 +4,31 @@ A voice customer-service agent that is fully self-hosted: ask a question by voic
 searches a knowledge base, and answers back in voice, with no external AI APIs. Built entirely on
 open-weights models. **Your data, your infra, your control.**
 
-> **Note: the ears and mouth are self-hosted now; the brain is the last hosted piece.**
-> Voice in (**Whisper** via vLLM) and voice out (**Kokoro**) run on our own Cloud Run GPU
-> service ([`gpu-speech/`](gpu-speech/)). The brain is still **Gemini** for the moment,
-> behind a swappable interface ([`app/model.py`](app/model.py)); it swaps to **self-hosted
-> Gemma 4** on the same GPU next (the July GPU-quota blocker in
-> [docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md) is resolved). The plan and progress
-> live in [docs/self-hosted-plan.md](docs/self-hosted-plan.md).
+> **Fully self-hosted now.** Voice in (**Whisper** via vLLM), the brain (**Gemma 4 31B**
+> via vLLM, orchestrated with ADK through LiteLLM), and voice out (**Kokoro**) all run in
+> one Cloud Run GPU service ([`gpu-speech/`](gpu-speech/)). No external AI APIs are in the
+> loop. A hosted-Gemini fallback remains one env var away (leave `MODEL_API_BASE` unset).
+> The build log lives in [docs/self-hosted-plan.md](docs/self-hosted-plan.md); the July
+> GPU-quota blocker ([docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md)) is resolved.
 
 The knowledge base in this demo is scientific papers, standing in for whatever *your* private data
 source is: an internal database, docs, or search engine.
 
 ## Architecture
 
-Target: everything model-shaped on **one Cloud Run GPU service** (RTX 6000 Pro, scale-to-zero):
+Everything model-shaped runs on **one Cloud Run GPU service** (RTX 6000 Pro, scale-to-zero),
+with a thin CPU service in front for the chat UI and agent loop:
 
-| Stage | Component | Status |
-|---|---|---|
-| Voice in | **Whisper large-v3-turbo** (vLLM) | self-hosted, live |
-| Agent loop / tool use | **Gemma 4 31B** orchestrated with **ADK** | Gemini for now, swap next |
-| Knowledge lookup | OpenAlex paper search (stand-in for your in-infra data source) | live |
-| Voice out | **Kokoro** (82M) on the GPU | self-hosted, live |
-| Frontend | Basic chat interface: type or talk, replies come back as text and voice | live |
+| Stage | Component |
+|---|---|
+| Voice in | **Whisper large-v3-turbo** (vLLM) |
+| Agent loop / tool use | **Gemma 4 31B** (vLLM), orchestrated with **ADK** via LiteLLM |
+| Knowledge lookup | OpenAlex paper search (stand-in for your in-infra data source) |
+| Voice out | **Kokoro** (82M) on the same GPU |
+| Frontend | Basic chat interface: type or talk, replies come back as text and voice |
+
+The GPU box sleeps when idle; the app detects that, wakes it on page load, and shows an
+honest status (overlay on load, an in-stream event mid-conversation) while it boots.
 
 ## Why ADK?
 
@@ -56,5 +59,6 @@ Early days. Building in the open, step by step:
 - [x] Paper-lookup tool (OpenAlex) wired into the agent loop (ADK migration: [#1](https://github.com/delfinadap/gemma-voice-agent/issues/1))
 - [x] Voice in and voice out self-hosted on a Cloud Run GPU: Whisper (vLLM) + Kokoro in
       [`gpu-speech/`](gpu-speech/), the app's only speech path
-- [ ] Swap the interim Gemini brain for **self-hosted Gemma 4 31B** on the same GPU
-      (see [docs/self-hosted-plan.md](docs/self-hosted-plan.md))
+- [x] Interim Gemini brain swapped for **self-hosted Gemma 4 31B**, merged into the same
+      GPU box as the speech models (see [docs/self-hosted-plan.md](docs/self-hosted-plan.md))
+- [x] Cold-start UX: wake-on-page-load, status overlay, in-stream waking events, retries

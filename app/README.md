@@ -1,10 +1,11 @@
 # app
 
-The voice-agent front: chat UI, the ADK agent, and thin clients for the
-self-hosted speech service. Voice in and voice out are **only** served by the
-GPU speech service ([`../gpu-speech/`](../gpu-speech/)); the brain is Gemini
-via your Cloud account for now, swapping to self-hosted Gemma 4 next (see
-[docs/self-hosted-plan.md](../docs/self-hosted-plan.md)).
+The voice-agent front: chat UI, the ADK agent, and thin clients for the GPU
+box ([`../gpu-speech/`](../gpu-speech/)), which serves all three models:
+Whisper (ears), Gemma 4 31B (brain), and Kokoro (mouth). Setting
+`MODEL_API_BASE` points the agent at the self-hosted brain via LiteLLM;
+leaving it unset falls back to hosted Gemini (useful for local dev without
+the GPU).
 
 - `server.py` - Flask app: serves the chat page, `POST /chat` (text or audio
   in, NDJSON event stream out), `POST /transcribe` (display transcription),
@@ -16,9 +17,9 @@ via your Cloud account for now, swapping to self-hosted Gemma 4 next (see
   in-infra data source)
 - `static/index.html` - mobile chat UI: text field plus a mic button
 
-Required env: `SPEECH_SERVICE_URL` (the deployed gpu-speech service; the app
-authenticates to it with its identity token), `GOOGLE_CLOUD_PROJECT`, and
-`GOOGLE_GENAI_USE_ENTERPRISE=TRUE` for the interim Gemini brain.
+Required env: `SPEECH_SERVICE_URL` and `MODEL_API_BASE` (both the GPU box URL;
+the app authenticates with its identity token), `MODEL_ID` (the served model
+name, e.g. `google/gemma-4-31B-it`), and `GOOGLE_CLOUD_PROJECT`.
 
 Deploy:
 
@@ -27,10 +28,12 @@ gcloud run deploy paper-voice-agent \
   --source . \
   --region us-central1 \
   --cpu 2 --memory 2Gi \
-  --max-instances 1 \
+  --max-instances 1 --timeout 600 \
   --allow-unauthenticated \
-  --set-env-vars GOOGLE_CLOUD_PROJECT=<project id>,GOOGLE_CLOUD_LOCATION=global,GOOGLE_GENAI_USE_ENTERPRISE=TRUE,SPEECH_SERVICE_URL=<gpu-speech url>
+  --set-env-vars GOOGLE_CLOUD_PROJECT=<project id>,MODEL_ID=google/gemma-4-31B-it,MODEL_API_BASE=<gpu box url>,SPEECH_SERVICE_URL=<gpu box url>
 ```
 
-The service account running this app needs `roles/run.invoker` on the
-gpu-speech service.
+The service account running this app needs `roles/run.invoker` on the GPU box.
+
+Tests: `test/smoke.sh <app url> <wav>` (warm protocol suite),
+`test/cold.sh <app url> <wav>` (cold-start UX, costs a real GPU boot).
