@@ -57,7 +57,7 @@ _wakers: dict[str, threading.Thread] = {}
 _wakers_lock = threading.Lock()
 
 
-def ensure_waking(base: str, path: str = "/healthz") -> None:
+def ensure_waking(base: str, path: str = "/health") -> None:
     """Hold a long request against a cold service so Cloud Run actually boots an
     instance. Short aborted probes (awake) don't reliably drive a start; this does.
     One waker per service at a time; no-op if one is already in flight."""
@@ -84,7 +84,7 @@ def ensure_waking(base: str, path: str = "/healthz") -> None:
         t.start()
 
 
-def awake(base: str, path: str = "/healthz") -> bool:
+def awake(base: str, path: str = "/health") -> bool:
     """Fast probe: is an instance of this scale-to-zero service already up?
     False means 'warn the user and expect a slow first turn', not 'broken'.
     This only reports; pair with ensure_waking() to actually drive the boot."""
