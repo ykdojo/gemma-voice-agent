@@ -588,56 +588,70 @@ document.getElementById("new-convo").addEventListener("click", () => {
   markActive();
 });
 
+// The drawer renders instantly from the last fetched list and refreshes in
+// the background (stale-while-revalidate); dots only on the very first open.
+let convoCache = null;
+
+function renderConversations(list) {
+  convoList.innerHTML = "";
+  if (!list.length) {
+    const none = document.createElement("div");
+    none.className = "convo-none";
+    none.textContent = "No conversations yet.";
+    convoList.appendChild(none);
+    return;
+  }
+  for (const c of list) {
+    const row = document.createElement("div");
+    row.className = "convo" + (c.id === SESSION_ID ? " active" : "");
+    row.dataset.id = c.id;
+    const title = document.createElement("span");
+    title.className = "title";
+    title.textContent = c.title;
+    title.addEventListener("click", () => switchTo(c.id));
+    const ren = document.createElement("button");
+    ren.textContent = "✎"; ren.title = "Rename";
+    ren.addEventListener("click", () => startRename(row, c));
+    const del = document.createElement("button");
+    del.textContent = "✕"; del.title = "Delete";
+    // Soft confirmation: first tap arms (✕ -> ?), second tap deletes.
+    let armed = false, disarm = null;
+    del.addEventListener("click", async () => {
+      if (!armed) {
+        armed = true;
+        del.textContent = "?"; del.title = "Tap again to delete";
+        del.style.color = "var(--danger)";
+        disarm = setTimeout(() => {
+          armed = false;
+          del.textContent = "✕"; del.title = "Delete"; del.style.color = "";
+        }, 3000);
+        return;
+      }
+      clearTimeout(disarm);
+      await fetch("/conversations/" + c.id, { method: "DELETE" });
+      convoCache = (convoCache || []).filter((x) => x.id !== c.id);
+      if (c.id === SESSION_ID) { SESSION_ID = newSessionId(); chat.innerHTML = ""; }
+      loadConversations();
+    });
+    row.append(title, ren, del);
+    convoList.appendChild(row);
+  }
+}
+
 async function loadConversations() {
-  convoList.innerHTML =
-    '<div class="convo-none"><span class="dots"><span></span><span></span><span></span></span></div>';
+  if (convoCache) {
+    renderConversations(convoCache);
+  } else {
+    convoList.innerHTML =
+      '<div class="convo-none"><span class="dots"><span></span><span></span><span></span></span></div>';
+  }
   try {
     const resp = await fetch("/conversations");
     if (resp.status === 401) { location.reload(); return; }
     const data = await resp.json();
-    convoList.innerHTML = "";
-    if (!data.conversations.length) {
-      const none = document.createElement("div");
-      none.className = "convo-none";
-      none.textContent = "No conversations yet.";
-      convoList.appendChild(none);
-      return;
-    }
-    for (const c of data.conversations) {
-      const row = document.createElement("div");
-      row.className = "convo" + (c.id === SESSION_ID ? " active" : "");
-      row.dataset.id = c.id;
-      const title = document.createElement("span");
-      title.className = "title";
-      title.textContent = c.title;
-      title.addEventListener("click", () => switchTo(c.id));
-      const ren = document.createElement("button");
-      ren.textContent = "✎"; ren.title = "Rename";
-      ren.addEventListener("click", () => startRename(row, c));
-      const del = document.createElement("button");
-      del.textContent = "✕"; del.title = "Delete";
-      // Soft confirmation: first tap arms (✕ -> ?), second tap deletes.
-      let armed = false, disarm = null;
-      del.addEventListener("click", async () => {
-        if (!armed) {
-          armed = true;
-          del.textContent = "?"; del.title = "Tap again to delete";
-          del.style.color = "var(--danger)";
-          disarm = setTimeout(() => {
-            armed = false;
-            del.textContent = "✕"; del.title = "Delete"; del.style.color = "";
-          }, 3000);
-          return;
-        }
-        clearTimeout(disarm);
-        await fetch("/conversations/" + c.id, { method: "DELETE" });
-        if (c.id === SESSION_ID) { SESSION_ID = newSessionId(); chat.innerHTML = ""; }
-        loadConversations();
-      });
-      row.append(title, ren, del);
-      convoList.appendChild(row);
-    }
-  } catch (e) { /* drawer stays empty on failure */ }
+    convoCache = data.conversations;
+    renderConversations(convoCache);
+  } catch (e) { /* keep whatever is on screen */ }
 }
 
 function startRename(row, c) {
