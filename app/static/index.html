@@ -144,10 +144,15 @@
   }
   #drawer .drawer-head h2 { font-size: 14px; font-weight: 600; }
   #new-convo {
-    border: 1px solid var(--border); background: var(--accent); color: var(--accent-text);
-    border-radius: 8px; padding: 6px 10px; font-size: 12.5px; cursor: pointer;
+    border: 1px solid var(--border); background: transparent; color: var(--text);
+    border-radius: 8px; padding: 5px 12px; font-size: 12.5px; cursor: pointer;
   }
+  #new-convo:hover { background: var(--bg); }
   #convo-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .convo-none {
+    padding: 18px 12px; text-align: center;
+    color: var(--text-dim); font-size: 13px;
+  }
   .convo {
     display: flex; align-items: center; gap: 6px;
     padding: 9px 10px; border-radius: 9px; cursor: pointer; font-size: 13.5px;
@@ -337,6 +342,12 @@ async function chatRequest(body, userBubble) {
   try {
     const resp = await fetch("/chat", { method: "POST", body });
     const ct = resp.headers.get("content-type") || "";
+    if (resp.status === 401) {
+      // IAP session expired; background fetches don't renew it. Reload to re-auth.
+      pending.textContent = "Your sign-in session expired. Reloading...";
+      setTimeout(() => location.reload(), 1200);
+      return;
+    }
     if (!resp.ok || !ct.includes("ndjson")) {
       pending.textContent = "The server had a problem (HTTP " + resp.status + "). Please try again.";
       return;
@@ -536,9 +547,20 @@ document.getElementById("new-convo").addEventListener("click", () => {
 });
 
 async function loadConversations() {
+  convoList.innerHTML =
+    '<div class="convo-none"><span class="dots"><span></span><span></span><span></span></span></div>';
   try {
-    const data = await (await fetch("/conversations")).json();
+    const resp = await fetch("/conversations");
+    if (resp.status === 401) { location.reload(); return; }
+    const data = await resp.json();
     convoList.innerHTML = "";
+    if (!data.conversations.length) {
+      const none = document.createElement("div");
+      none.className = "convo-none";
+      none.textContent = "No conversations yet.";
+      convoList.appendChild(none);
+      return;
+    }
     for (const c of data.conversations) {
       const row = document.createElement("div");
       row.className = "convo" + (c.id === SESSION_ID ? " active" : "");
@@ -591,7 +613,9 @@ async function switchTo(id) {
   markActive();
   const loading = add("bot", null);  // dots while the history loads
   try {
-    const data = await (await fetch("/conversations/" + id + "/messages")).json();
+    const resp = await fetch("/conversations/" + id + "/messages");
+    if (resp.status === 401) { location.reload(); return; }
+    const data = await resp.json();
     if (SESSION_ID !== id) return;  // user already switched again
     loading.remove();
     if (!data.messages.length) {
