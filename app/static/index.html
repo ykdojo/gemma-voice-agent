@@ -500,13 +500,19 @@ async function switchTo(id) {
   chat.innerHTML = "";
   closeDrawer();
   markActive();
+  const loading = add("bot", null);  // dots while the history loads
   try {
     const data = await (await fetch("/conversations/" + id + "/messages")).json();
+    if (SESSION_ID !== id) return;  // user already switched again
+    loading.remove();
     for (const m of data.messages) {
       const div = add(m.role === "user" ? "user" : "bot", m.text);
       if (m.role !== "user") div.innerHTML = mdLite(m.text);
     }
-  } catch (e) { add("bot", "Could not load this conversation."); }
+  } catch (e) {
+    loading.remove();
+    add("bot", "Could not load this conversation.");
+  }
 }
 
 function markActive() {
