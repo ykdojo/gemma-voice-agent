@@ -574,7 +574,20 @@ async function loadConversations() {
       ren.addEventListener("click", () => startRename(row, c));
       const del = document.createElement("button");
       del.textContent = "✕"; del.title = "Delete";
+      // Soft confirmation: first tap arms (✕ -> ?), second tap deletes.
+      let armed = false, disarm = null;
       del.addEventListener("click", async () => {
+        if (!armed) {
+          armed = true;
+          del.textContent = "?"; del.title = "Tap again to delete";
+          del.style.color = "var(--danger)";
+          disarm = setTimeout(() => {
+            armed = false;
+            del.textContent = "✕"; del.title = "Delete"; del.style.color = "";
+          }, 3000);
+          return;
+        }
+        clearTimeout(disarm);
         await fetch("/conversations/" + c.id, { method: "DELETE" });
         if (c.id === SESSION_ID) { SESSION_ID = newSessionId(); chat.innerHTML = ""; }
         loadConversations();
@@ -590,7 +603,15 @@ function startRename(row, c) {
   const input = document.createElement("input");
   input.value = c.title;
   input.style.cssText = "flex:1;min-width:0;font:inherit;border:1px solid var(--border);border-radius:6px;padding:2px 6px;background:var(--bg);color:var(--text)";
+  // While editing, the edit/delete buttons make way for a single save check.
+  row.querySelectorAll("button").forEach((b) => { b.style.display = "none"; });
+  const check = document.createElement("button");
+  check.textContent = "✓"; check.title = "Save";
+  row.appendChild(check);
+  let saved = false;
   const save = async () => {
+    if (saved) return;
+    saved = true;
     const t = input.value.trim();
     if (t && t !== c.title) {
       await fetch("/conversations/" + c.id, {
@@ -598,8 +619,9 @@ function startRename(row, c) {
         body: JSON.stringify({ title: t }),
       });
     }
-    loadConversations();
+    loadConversations();  // rebuilds the row with its normal buttons
   };
+  check.addEventListener("click", save);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
   input.addEventListener("blur", save);
   titleEl.replaceWith(input);
