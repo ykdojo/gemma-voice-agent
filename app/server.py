@@ -126,6 +126,18 @@ def conversations_rename(session_id):
     return jsonify({"ok": True})
 
 
+@app.post("/conversations/<session_id>/prepare")
+def conversations_prepare(session_id):
+    """Fire-and-forget pre-creation: the frontend calls this the moment a new
+    conversation id exists, so the (slow, LRO-backed) session creation runs
+    while the user is still typing their first message."""
+    user_id = _user_id()
+    threading.Thread(
+        target=model.precreate_session, args=(user_id, session_id), daemon=True
+    ).start()
+    return jsonify({"ok": True}), 202
+
+
 @app.get("/conversations/<session_id>/messages")
 def conversations_messages(session_id):
     return jsonify({"messages": model.get_history(_user_id(), session_id)})

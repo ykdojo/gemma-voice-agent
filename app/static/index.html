@@ -492,9 +492,13 @@ function attachReplayVoice(bubble, text) {
   bar.className = "voice";
   bar.innerHTML = '<button type="button" aria-label="Play">' + PLAY_SVG +
     '</button><span class="time">Voice reply</span>';
-  bar.querySelector("button").addEventListener("click", async () => {
-    bar.remove();
+  bar.querySelector("button").addEventListener("click", async (e) => {
+    // Instant feedback: the play triangle becomes loading dots while the
+    // audio is fetched (cache hit or re-synthesis).
+    e.currentTarget.innerHTML = DOTS;
+    bar.querySelector(".time").textContent = "Loading";
     await requestSpeech(bubble, text, false);
+    bar.remove();
     const play = bubble.querySelector(".voice button");
     if (play) play.click();
   }, { once: true });
@@ -579,9 +583,16 @@ document.getElementById("signout").addEventListener("click", () => {
   location.href = "/?gcp-iap-mode=CLEAR_LOGIN_COOKIE";
 });
 
+function prepareSession(id) {
+  // Session creation on the backend is slow (a long-running operation); kick
+  // it off in the background so the first message doesn't wait for it.
+  fetch("/conversations/" + encodeURIComponent(id) + "/prepare", { method: "POST" }).catch(() => {});
+}
+
 document.getElementById("new-convo").addEventListener("click", () => {
   SESSION_ID = newSessionId();
   setUrl(SESSION_ID);
+  prepareSession(SESSION_ID);
   chat.innerHTML = "";
   showEmptyHint(EMPTY_HINT);
   closeDrawer();
@@ -806,6 +817,7 @@ if (urlConvo) {
   switchTo(urlConvo);
 } else {
   setUrl(SESSION_ID);
+  prepareSession(SESSION_ID);
   showEmptyHint(EMPTY_HINT);
 }
 </script>

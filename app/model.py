@@ -103,8 +103,29 @@ def _run(coro):
     return asyncio.run_coroutine_threadsafe(coro, _loop).result()
 
 
+# Session ops on Agent Engine are expensive (~2.7s per call; creation is a
+# long-running operation that can take 15s+), so: sessions the process has
+# already ensured are never re-checked, and the frontend pre-creates upcoming
+# sessions in the background while the user is still typing.
+_ensured: set[tuple[str, str]] = set()
+_needs_title: set[tuple[str, str]] = set()
+
+
 def _ensure_session(user_id: str, session_id: str, first_message: str = "") -> None:
-    """Get-or-create; a new conversation is titled from its first message."""
+    """Get-or-create; a new conversation is titled from its first message.
+    Pre-created sessions get their title from the first real message, applied
+    in the background so the turn never waits on it."""
+    key = (user_id, session_id)
+    if key in _ensured:
+        if key in _needs_title and first_message:
+            _needs_title.discard(key)
+            title = first_message.strip()[:48]
+            threading.Thread(
+                target=lambda: rename_conversation(user_id, session_id, title),
+                daemon=True,
+            ).start()
+        return
+
     async def go():
         existing = await _sessions.get_session(
             app_name=APP_NAME, user_id=user_id, session_id=session_id
@@ -115,8 +136,20 @@ def _ensure_session(user_id: str, session_id: str, first_message: str = "") -> N
                 app_name=APP_NAME, user_id=user_id, session_id=session_id,
                 state={"title": title},
             )
+            if not first_message:
+                _needs_title.add(key)
 
     _run(go())
+    _ensured.add(key)
+
+
+def precreate_session(user_id: str, session_id: str) -> None:
+    """Fire-and-forget creation of an upcoming conversation (from a background
+    thread) so the user's first message doesn't pay the creation LRO."""
+    try:
+        _ensure_session(user_id, session_id)
+    except Exception:  # noqa: BLE001 - best effort; the turn path retries anyway
+        pass
 
 
 # --- conversation management (backs the UI drawer) ---------------------------
@@ -135,6 +168,8 @@ def list_conversations(user_id: str) -> list[dict]:
 
 
 def delete_conversation(user_id: str, session_id: str) -> None:
+    _ensured.discard((user_id, session_id))
+    _needs_title.discard((user_id, session_id))
     _run(_sessions.delete_session(app_name=APP_NAME, user_id=user_id, session_id=session_id))
 
 
