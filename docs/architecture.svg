@@ -68,6 +68,6 @@
   <line x1="180" y1="352" x2="180" y2="554" stroke="#9FB3CC" stroke-width="1.5" marker-end="url(#arrow)"/>
   <line x1="420" y1="352" x2="465" y2="554" stroke="#9FB3CC" stroke-width="1.5" marker-end="url(#arrow)"/>
   <line x1="720" y1="472" x2="770" y2="554" stroke="#9FB3CC" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <rect x="28" y="522" width="218" height="22" rx="4" fill="#182132"/>
+  <rect x="32" y="526" width="204" height="16" rx="3" fill="#182132"/>
   <text x="36" y="538" font-size="12" font-weight="700" letter-spacing="1.5" fill="#B8C4D9">SUPPORTING SERVICES</text>
 </svg>
