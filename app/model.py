@@ -330,11 +330,28 @@ def _event_dicts(events, state):
         if getattr(event, "error_code", None) or getattr(event, "error_message", None):
             state["error"] = f"{event.error_code or 'error'}: {event.error_message or ''}".strip()
         try:
-            if event.get_function_calls():
-                state["streamed"] = ""
-                yield {"type": "status", "status": "Searching papers"}
+            calls = event.get_function_calls()
         except Exception:  # noqa: BLE001
-            pass
+            calls = None
+        if calls:
+            state["streamed"] = ""
+            # Name the tool and its query, and count calls across the turn,
+            # so multi-step research reads as progress instead of one
+            # unchanging "Searching papers".
+            for call in calls:
+                state["tool_count"] = state.get("tool_count", 0) + 1
+                name = getattr(call, "name", "") or ""
+                args = getattr(call, "args", None) or {}
+                if name == "search_papers":
+                    q = str(args.get("query", "")).strip()
+                    label = f'Searching papers: "{q[:48]}"' if q else "Searching papers"
+                elif name == "get_paper":
+                    label = "Reading a paper"
+                else:
+                    label = f"Running {name}" if name else "Running a tool"
+                if state["tool_count"] > 1:
+                    label += f" (step {state['tool_count']})"
+                yield {"type": "status", "status": label}
         if event.content and event.content.parts:
             # The model reasons before it answers; those tokens are hidden below,
             # so surface the phase once instead of leaving the user on bare dots.
