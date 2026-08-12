@@ -7,7 +7,7 @@ open-weights models. **Your data, your infra, your control.**
 > **Fully self-hosted.** Voice in (**Whisper** via vLLM), the brain (**Gemma 4 31B** via
 > vLLM, orchestrated with ADK through LiteLLM), and voice out (**Kokoro**) all run in one
 > Cloud Run GPU service ([`gpu-speech/`](gpu-speech/)). Three open-weights models, no
-> external AI APIs, no hosted fallbacks. The build log lives in
+> external AI APIs. The build log lives in
 > [docs/self-hosted-plan.md](docs/self-hosted-plan.md); the July GPU-quota blocker
 > ([docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md)) is resolved.
 
