@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Cold-start UX test: forces the GPU boxes to sleep, then verifies both wake
+# layers: /status reports not-ready (page-load overlay signal), and a /chat sent
+# while cold emits the waking-up status event and still completes.
+#
+# Costs a real GPU cold start per run (several minutes) - run on demand, not in CI.
+#
+# Usage: test/cold.sh [APP_URL]
+set -uo pipefail
+
+APP="${1:-https://paper-voice-agent-dev-913990660147.us-central1.run.app}"
+MODEL_SVC="gemma4-rtx-vllm-codelab"
+SPEECH_SVC="speech-gpu"
+GPU_PROJECT="adk-bq-mcp-10524"
+REGION="us-central1"
+PASS=0; FAIL=0
+ok()  { PASS=$((PASS+1)); echo "PASS: $1"; }
+bad() { FAIL=$((FAIL+1)); echo "FAIL: $1"; }
+
+echo "== forcing GPU services cold (new revisions, no traffic) =="
+for svc in "$MODEL_SVC" "$SPEECH_SVC"; do
+  gcloud run services update "$svc" --project "$GPU_PROJECT" --region "$REGION" \
+    --update-env-vars "COLD_TEST_MARKER=$(date +%s)" --quiet >/dev/null 2>&1 &&
+    echo "  $svc: new revision (instance drained)"
+done
+sleep 10
+
+echo "== layer 1: /status while cold =="
+s=$(curl -sS --max-time 30 "$APP/status")
+echo "  $s"
+echo "$s" | grep -q '"ready":false' && ok "status reports not-ready while cold" || bad "status did not report cold: $s"
+
+echo "== layer 2: chat sent while cold =="
+resp=$(curl -sS --max-time 590 -X POST "$APP/chat" \
+  -H 'Content-Type: application/json' \
+  -d '{"text": "Say only the word pong.", "session_id": "cold-test"}')
+echo "$resp" | grep -q '"Waking up the GPU' && ok "waking-up status event emitted" || bad "no waking-up status event"
+echo "$resp" | grep -q '"type": *"done"' && ok "turn completed despite cold start" || bad "turn did not complete"
+echo "$resp" | grep -q '"type": *"error"' && bad "error event in cold-start stream" || ok "no error events"
+
+echo "== layer 1 again: /status should now be ready =="
+for i in $(seq 1 60); do
+  s=$(curl -sS --max-time 30 "$APP/status")
+  echo "$s" | grep -q '"ready":true' && break
+  sleep 5
+done
+echo "$s" | grep -q '"ready":true' && ok "status became ready (overlay would dismiss)" || bad "status never became ready: $s"
+
+echo
+echo "== $PASS passed, $FAIL failed =="
+exit $([ $FAIL -eq 0 ] && echo 0 || echo 1)

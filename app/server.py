@@ -11,6 +11,7 @@ import base64
 import json
 import os
 import re
+import threading
 import traceback
 
 from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
@@ -19,6 +20,20 @@ import model
 import speech_client
 
 app = Flask(__name__, static_folder="static")
+
+
+def _prewarm():
+    """Fire-and-forget wake probes at app-process start: the moment this (fast,
+    CPU-only) service comes up for any reason, the (slow, scale-to-zero) GPU
+    boxes start booting too, without waiting for the page's JS to poll /status."""
+    model_base = os.environ.get("MODEL_API_BASE", "").rstrip("/")
+    if model_base:
+        speech_client.awake(model_base, "/health")
+    if speech_client.enabled():
+        speech_client.awake(speech_client.BASE)
+
+
+threading.Thread(target=_prewarm, daemon=True).start()
 
 
 def _parse_request():
