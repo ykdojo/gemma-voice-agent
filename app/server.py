@@ -163,6 +163,46 @@ def chat():
     )
 
 
+@app.post("/retry")
+def retry():
+    """Resume a failed turn from where it stopped (ADK invocation resume)."""
+    body = request.get_json(silent=True) or {}
+    session_id = body.get("session_id")
+    invocation_id = body.get("invocation_id")
+    if not session_id or not invocation_id:
+        return jsonify({"error": "need session_id and invocation_id"}), 400
+    user_id = _user_id()
+
+    def generate():
+        yield json.dumps({"type": "meta", "speech_available": os.environ.get("DISABLE_TTS") != "1"}) + "\n"
+        try:
+            for event in model.retry_stream(
+                session_id=session_id, invocation_id=invocation_id, user_id=user_id
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            yield json.dumps({"type": "error", "error": str(e)}) + "\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="application/x-ndjson",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
+
+
+@app.post("/rewind")
+def rewind():
+    """Give up on a failed turn: drop it from the conversation's effective history."""
+    body = request.get_json(silent=True) or {}
+    session_id = body.get("session_id")
+    invocation_id = body.get("invocation_id")
+    if not session_id or not invocation_id:
+        return jsonify({"error": "need session_id and invocation_id"}), 400
+    model.rewind(session_id=session_id, invocation_id=invocation_id, user_id=_user_id())
+    return jsonify({"ok": True})
+
+
 @app.post("/speak")
 def speak():
     try:

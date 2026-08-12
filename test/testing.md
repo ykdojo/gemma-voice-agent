@@ -96,6 +96,30 @@ forcing update boots the new revision to verify it, which can leave a box
 warm - the test uses an audio turn so the reliably-cold speech path is
 exercised. Don't run in CI.
 
+## Layer 5: error recovery
+
+A failed turn must surface as an `error` event (with `invocation_id` and
+`retryable: true`), never as the apology fallback. Two verified paths:
+
+```sh
+# 1. Force a model failure; the stream must end in a retryable error event:
+MODEL_ID=gemini-nonexistent-model  # plus the usual env
+python -c "import model; print(list(model.reply_stream('hi', session_id='t1', user_id='t'))[-1])"
+
+# 2. Cross-process resume: fail a turn (broken MODEL_ID) in one process, then
+# in a NEW process with a working MODEL_ID:
+python -c "import model; print(list(model.retry_stream(session_id='t1', invocation_id='<from step 1>', user_id='t'))[-1])"
+# -> must be a done event answering the ORIGINAL question (resume re-runs the
+# invocation from its last persisted event; no duplicate user message).
+```
+
+Over HTTP: `POST /retry {session_id, invocation_id}` streams the same NDJSON;
+`POST /rewind {session_id, invocation_id}` drops a poisoned invocation from
+effective history. In the UI, a failed turn shows the reason plus a Retry
+button. Rules verified: the fallback apology only appears when the model
+genuinely returns empty text after a healthy turn; empty-output turns are
+treated as failures.
+
 ## Known blind spots
 
 - The mic itself (getUserMedia) can't be automated - test by hand on a phone

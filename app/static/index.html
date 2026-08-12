@@ -319,7 +319,7 @@ async function chatRequest(body, userBubble) {
       buffer = ev.text || buffer;
       pending.innerHTML = mdLite(buffer);
       if (speech && buffer) requestSpeech(pending, buffer);
-    } else if (ev.type === "error") pending.textContent = ev.error;
+    } else if (ev.type === "error") showError(pending, ev);
     chat.scrollTop = chat.scrollHeight;
   };
   try {
@@ -349,6 +349,66 @@ async function chatRequest(body, userBubble) {
   } catch (e) {
     pending.textContent = "Request failed: " + e;
   }
+}
+
+// A failed turn shows the reason and, when the server says it's resumable,
+// a Retry that resumes the same invocation (and a quiet give-up that rewinds it).
+function showError(bubble, ev) {
+  bubble.textContent = "Something went wrong: " + (ev.error || "unknown error");
+  if (!ev.retryable || !ev.invocation_id) return;
+  const sid = SESSION_ID, iid = ev.invocation_id;
+  const btn = document.createElement("button");
+  btn.textContent = "Retry";
+  btn.style.cssText = "display:block;margin-top:8px;padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:var(--accent);color:var(--accent-text);cursor:pointer;font:inherit;font-size:12.5px";
+  btn.addEventListener("click", async () => {
+    bubble.remove();
+    const retryBubble = add("bot", null);
+    try {
+      const resp = await fetch("/retry", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sid, invocation_id: iid }),
+      });
+      await streamInto(resp, retryBubble);
+    } catch (e) {
+      retryBubble.textContent = "Retry failed: " + e;
+      fetch("/rewind", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sid, invocation_id: iid }),
+      });
+    }
+  });
+  bubble.appendChild(btn);
+}
+
+// Minimal NDJSON reader for retry streams (chatRequest owns the main path).
+async function streamInto(resp, pending) {
+  let buffer = ""; let speech = false;
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let leftover = "";
+  const handle = (ev) => {
+    if (ev.type === "meta") speech = ev.speech_available;
+    else if (ev.type === "status") pending.innerHTML = DOTS + " " + ev.status;
+    else if (ev.type === "delta") { buffer += ev.text; pending.textContent = buffer; }
+    else if (ev.type === "done") {
+      buffer = ev.text || buffer;
+      pending.innerHTML = mdLite(buffer);
+      if (speech && buffer) requestSpeech(pending, buffer);
+    } else if (ev.type === "error") showError(pending, ev);
+    chat.scrollTop = chat.scrollHeight;
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    leftover += dec.decode(value, { stream: true });
+    const lines = leftover.split("\n");
+    leftover = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try { handle(JSON.parse(line)); } catch (e) { /* skip bad line */ }
+    }
+  }
+  if (leftover.trim()) { try { handle(JSON.parse(leftover)); } catch (e) {} }
 }
 
 const PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';

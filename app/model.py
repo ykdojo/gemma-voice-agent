@@ -16,6 +16,7 @@ import threading
 import uuid
 
 from google.adk.agents import Agent
+from google.adk.apps import App, ResumabilityConfig
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
 from google.adk.runners import Runner
@@ -82,7 +83,16 @@ if AGENT_ENGINE_ID:
     )
 else:
     _sessions = InMemorySessionService()
-_runner = Runner(agent=_agent, app_name=APP_NAME, session_service=_sessions)
+
+# Resumable invocations (experimental ADK feature): a turn that dies midway can
+# be resumed from its last persisted event instead of being retyped. Our tools
+# are read-only HTTP GETs, so at-least-once re-execution is safe.
+_app = App(
+    name=APP_NAME,
+    root_agent=_agent,
+    resumability_config=ResumabilityConfig(is_resumable=True),
+)
+_runner = Runner(app=_app, session_service=_sessions)
 
 
 # One long-lived event loop on a daemon thread for the session-service coroutines,
@@ -189,18 +199,71 @@ def reply_stream(text: str, session_id: str = "default", user_id: str = "dev"):
     except Exception:  # noqa: BLE001
         run_config = None
 
-    final = None
-    streamed = ""  # deltas since the last tool call; fallback if no flagged final event arrives
+    state = _new_stream_state()
     events = _runner.run(
         user_id=user_id,
         session_id=session_id,
         new_message=types.Content(role="user", parts=parts),
         **({"run_config": run_config} if run_config else {}),
     )
+    try:
+        yield from _event_dicts(events, state)
+    except Exception as e:  # noqa: BLE001 - surface honestly; the turn is resumable
+        yield _error_dict(e, state)
+        return
+    yield _done_dict(state)
+
+
+def retry_stream(session_id: str, invocation_id: str, user_id: str = "dev"):
+    """Resume a failed invocation from its last persisted event (no new user
+    message; ADK re-executes the dangling step and continues). Same event
+    protocol as reply_stream."""
+    agen = _runner.run_async(
+        user_id=user_id, session_id=session_id, invocation_id=invocation_id
+    )
+
+    def sync_events():
+        while True:
+            try:
+                yield asyncio.run_coroutine_threadsafe(agen.__anext__(), _loop).result()
+            except StopAsyncIteration:
+                return
+
+    state = _new_stream_state()
+    state["invocation_id"] = invocation_id
+    try:
+        yield from _event_dicts(sync_events(), state)
+    except Exception as e:  # noqa: BLE001
+        yield _error_dict(e, state)
+        return
+    yield _done_dict(state)
+
+
+def rewind(session_id: str, invocation_id: str, user_id: str = "dev") -> None:
+    """Give-up path: drop a failed invocation from effective history so it
+    can't poison future turns."""
+    _run(
+        _runner.rewind_async(
+            user_id=user_id,
+            session_id=session_id,
+            rewind_before_invocation_id=invocation_id,
+        )
+    )
+
+
+def _new_stream_state() -> dict:
+    return {"final": None, "streamed": "", "invocation_id": None, "error": None}
+
+
+def _event_dicts(events, state):
     for event in events:
+        if getattr(event, "invocation_id", None):
+            state["invocation_id"] = event.invocation_id
+        if getattr(event, "error_code", None) or getattr(event, "error_message", None):
+            state["error"] = f"{event.error_code or 'error'}: {event.error_message or ''}".strip()
         try:
             if event.get_function_calls():
-                streamed = ""
+                state["streamed"] = ""
                 yield {"type": "status", "status": "Searching papers"}
         except Exception:  # noqa: BLE001
             pass
@@ -215,8 +278,34 @@ def reply_stream(text: str, session_id: str = "default", user_id: str = "dev"):
             if not chunk:
                 continue
             if getattr(event, "partial", False):
-                streamed += chunk
+                state["streamed"] += chunk
                 yield {"type": "delta", "text": chunk}
             elif event.is_final_response():
-                final = chunk
-    yield {"type": "done", "text": final or streamed or "Sorry, I could not come up with an answer."}
+                state["final"] = chunk
+
+
+def _error_dict(e: Exception, state: dict) -> dict:
+    return {
+        "type": "error",
+        "error": f"{type(e).__name__}: {e}",
+        "invocation_id": state.get("invocation_id"),
+        "retryable": bool(state.get("invocation_id")),
+    }
+
+
+def _done_dict(state: dict) -> dict:
+    """Honest terminal event: a turn that produced no text failed, even when the
+    runner swallowed the exception (resumable mode logs it and ends the stream)."""
+    text = state["final"] or state["streamed"]
+    if not text:
+        return {
+            "type": "error",
+            "error": state.get("error") or "The model turn failed before producing an answer.",
+            "invocation_id": state.get("invocation_id"),
+            "retryable": bool(state.get("invocation_id")),
+        }
+    return {
+        "type": "done",
+        "text": text,
+        "invocation_id": state.get("invocation_id"),
+    }
