@@ -57,7 +57,7 @@
 
   <!-- Managed services band -->
   <rect x="20" y="510" width="920" height="120" rx="12" fill="#182132" stroke="#7D8CA6" stroke-width="1.5"/>
-  <text x="36" y="538" font-size="12" font-weight="700" letter-spacing="1.5" fill="#B8C4D9">SUPPORTING SERVICES</text>
+  <text x="36" y="538" font-size="12" font-weight="700" letter-spacing="1.5" fill="#B8C4D9" stroke="#182132" stroke-width="6" paint-order="stroke">SUPPORTING SERVICES</text>
   <g font-size="14" fill="#ECF1F8" text-anchor="middle">
     <rect x="45" y="558" width="270" height="46" rx="8" fill="#1B2A47" stroke="#5C6E8C"/>
     <text x="180" y="586">Agent Engine Sessions</text>
@@ -66,7 +66,7 @@
     <rect x="645" y="558" width="270" height="46" rx="8" fill="#1B2A47" stroke="#5C6E8C"/>
     <text x="780" y="586">OpenAlex API</text>
   </g>
-  <line x1="180" y1="352" x2="180" y2="504" stroke="#9FB3CC" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <line x1="420" y1="352" x2="454" y2="504" stroke="#9FB3CC" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <line x1="720" y1="472" x2="739" y2="504" stroke="#9FB3CC" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="180" y1="352" x2="180" y2="554" stroke="#9FB3CC" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="420" y1="352" x2="465" y2="554" stroke="#9FB3CC" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="720" y1="472" x2="770" y2="554" stroke="#9FB3CC" stroke-width="1.5" marker-end="url(#arrow)"/>
 </svg>
