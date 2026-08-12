@@ -417,7 +417,18 @@ async function chatRequest(body, userBubble) {
       try { handle(JSON.parse(leftover)); } catch (e) { console.error("bad stream tail", leftover); }
     }
   } catch (e) {
-    pending.textContent = "Request failed: " + e;
+    // A dropped connection (phone network blip, instance replaced mid-stream)
+    // surfaces here as a fetch TypeError. Offer a one-tap resend; the body
+    // (JSON or FormData) is still in hand and can be sent again as-is.
+    pending.textContent = "Connection interrupted. ";
+    const btn = document.createElement("button");
+    btn.textContent = "Retry";
+    btn.style.cssText = "display:block;margin-top:8px;padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:var(--accent);color:var(--accent-text);cursor:pointer;font:inherit;font-size:12.5px";
+    btn.addEventListener("click", () => {
+      pending.remove();
+      chatRequest(body, userBubble);
+    }, { once: true });
+    pending.appendChild(btn);
   }
 }
 
