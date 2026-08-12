@@ -27,7 +27,20 @@ gcloud beta run deploy speech-gpu --source . \
   --no-allow-unauthenticated --max-instances 1 \
   --network <vpc> --subnet <subnet> --vpc-egress all-traffic \
   --startup-probe httpGet.path=/healthz,initialDelaySeconds=60,failureThreshold=60,periodSeconds=10,timeoutSeconds=5 \
-  --set-env-vars BRAIN_MODEL_LOCATION=gs://vertex-model-garden-public-us/gemma4/gemma-4-31B-it,BRAIN_MODEL_NAME=google/gemma-4-31B-it
+  --set-env-vars BRAIN_MODEL_LOCATION=gs://vertex-model-garden-public-us/gemma4/gemma-4-31B-it,BRAIN_MODEL_NAME=google/gemma-4-31B-it,HF_HUB_OFFLINE=1,TRANSFORMERS_OFFLINE=1
 ```
 
 Omit `BRAIN_MODEL_LOCATION` to run it as an ears-and-mouth-only box.
+
+Deploy notes, each learned the hard way:
+
+- The VPC subnet needs **Private Google Access** on, or the box (whose egress
+  all routes through the VPC) cannot reach GCS and the weight stream hangs
+  forever.
+- `HF_HUB_OFFLINE=1` is required: the box has no public internet (PGA covers
+  Google APIs only), and without it huggingface_hub tries to list the Whisper
+  repo online anyway - each retry burns ~9 minutes before failing.
+- First cold start on this generic vLLM image is ~20 minutes: weight stream +
+  runtime fp8 quantization + torch.compile with no cache. Keep the startup
+  probe window >= 25 min (failureThreshold=150). Boot-time optimization
+  (compile cache on a GCS volume, --enforce-eager) is a known follow-up.
