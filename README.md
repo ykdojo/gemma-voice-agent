@@ -77,3 +77,6 @@ for exactly this transition:
   saw, where the time went.
 - **Error recovery.** Resume cleanly from a broken or interrupted turn.
 - **Evaluation.** Regression-test the agent's answers, not just the protocol.
+
+Upcoming writeup: *From prototype to production: a self-hosted voice agent on
+a single Cloud Run GPU*.
