@@ -152,6 +152,33 @@
   </button>
 </form>
 <script>
+// GPU wake gate: the model boxes scale to zero, so on page load we poll /status
+// (which itself kicks their startups) and cover the UI until they're ready.
+const gate = document.createElement("div");
+gate.style.cssText = "position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(10,12,16,.82);backdrop-filter:blur(4px);text-align:center;padding:24px";
+gate.innerHTML = '<div><div style="font-size:2rem">⚡</div>' +
+  '<div style="font-size:1.05rem;font-weight:600;margin-top:8px">Waking up the GPU</div>' +
+  '<div style="opacity:.75;margin-top:6px;max-width:26rem">The models sleep when idle. Spinning them back up takes a few minutes.</div>' +
+  '<div id="gate-elapsed" style="opacity:.55;margin-top:10px;font-variant-numeric:tabular-nums"></div></div>';
+document.body.appendChild(gate);
+
+(async function gpuGate() {
+  const started = Date.now();
+  let shown = false;
+  for (;;) {
+    try {
+      const s = await (await fetch("/status")).json();
+      if (s.ready) break;
+      if (!shown) { gate.style.display = "flex"; shown = true; }
+      const secs = Math.round((Date.now() - started) / 1000);
+      document.getElementById("gate-elapsed").textContent =
+        Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0");
+    } catch (e) { /* app itself unreachable; keep trying */ }
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+  gate.style.display = "none";
+})();
+
 const chat = document.getElementById("chat");
 const form = document.getElementById("form");
 const textEl = document.getElementById("text");

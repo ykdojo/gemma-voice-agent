@@ -45,6 +45,16 @@ def index():
     return send_from_directory("static", "index.html")
 
 
+@app.get("/status")
+def status():
+    """Are the scale-to-zero GPU boxes awake? Probing a cold one also starts it,
+    so the frontend polling this at page load doubles as the wake-up trigger."""
+    model_base = os.environ.get("MODEL_API_BASE", "").rstrip("/")
+    model_ok = speech_client.awake(model_base, "/health") if model_base else True
+    speech_ok = speech_client.awake(speech_client.BASE) if speech_client.enabled() else True
+    return jsonify({"model": model_ok, "speech": speech_ok, "ready": model_ok and speech_ok})
+
+
 @app.post("/chat")
 def chat():
     text, audio, audio_mime, session_id = _parse_request()
