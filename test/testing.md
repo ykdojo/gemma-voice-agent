@@ -139,15 +139,26 @@ CLI exit code (always 0 in ADK 2.4).
 
 ## Layer 7: observability spot-check
 
-After a deployed turn, traces should appear in Cloud Trace (Trace Explorer,
-service name from OTEL_SERVICE_NAME): one trace per turn with agent, model
-call, and tool spans. Requires roles/telemetry.writer on the service account
-and `--no-cpu-throttling` (throttled CPU delays span export). Query quickly:
+After a deployed turn, open **Trace Explorer** (Cloud Console > Trace) for the
+project and filter by OpenTelemetry service = the OTEL_SERVICE_NAME value.
+Expect one trace per turn: `invocation > invoke_agent > call_llm >
+generate_content` (plus `execute_tool` when the agent searched), with GenAI
+token counts (in/out) shown on the trace header. Requires
+roles/telemetry.writer on the service account and `--no-cpu-throttling`
+(throttled CPU delays span export).
 
-```sh
-curl -s "https://cloudtrace.googleapis.com/v1/projects/<project>/traces?startTime=<iso>&view=ROOTSPAN" \
-  -H "Authorization: Bearer $(gcloud auth print-access-token)"
-```
+Do NOT verify via the legacy v1 REST list API - it only surfaces the plain
+HTTP client spans, not the OTLP-ingested ADK spans, and will make you think
+tracing is broken when it isn't. Trace Explorer is the source of truth.
+
+Data retention: `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false` is set on the
+deployed service, so spans carry structure, latencies, and token counts but
+never prompt/response text. Conversation content lives only in the session
+store. Flip the env var on (locally, against throwaway sessions) when a trace
+needs full payloads for debugging.
+
+The Flask request span and the ADK turn span are currently separate traces
+(the runner's thread starts its own context) - known, acceptable for now.
 
 ## Known blind spots
 
