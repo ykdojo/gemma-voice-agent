@@ -461,7 +461,7 @@ function fmt(s) {
   return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 }
 
-async function requestSpeech(bubble, text) {
+async function requestSpeech(bubble, text, scroll = true) {
   const bar = document.createElement("div");
   bar.className = "voice";
   bar.innerHTML =
@@ -469,7 +469,7 @@ async function requestSpeech(bubble, text) {
     '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>' +
     '<span class="time">Preparing voice reply</span>' + DOTS;
   bubble.appendChild(bar);
-  chat.scrollTop = chat.scrollHeight;
+  if (scroll) chat.scrollTop = chat.scrollHeight;  // live replies only; replays stay put
   try {
     const resp = await fetch("/speak", {
       method: "POST",
@@ -494,7 +494,7 @@ function attachReplayVoice(bubble, text) {
     '</button><span class="time">Voice reply</span>';
   bar.querySelector("button").addEventListener("click", async () => {
     bar.remove();
-    await requestSpeech(bubble, text);
+    await requestSpeech(bubble, text, false);
     const play = bubble.querySelector(".voice button");
     if (play) play.click();
   }, { once: true });
