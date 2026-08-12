@@ -1,15 +1,12 @@
-"""Speech GPU service: ears and mouth on one GPU, no LLM.
+"""The GPU box: ears, brain, and mouth on one GPU.
 
-- POST /v1/audio/transcriptions: audio file in (webm/ogg/wav/anything ffmpeg
-  reads; transcoded to 16k mono wav), transcription JSON out. Proxied to a
-  local vLLM serving Whisper.
+- POST /v1/audio/transcriptions: audio in (anything ffmpeg reads, transcoded to
+  16k mono wav), transcription JSON out. Proxied to local vLLM (Whisper).
+- POST /v1/chat/completions: OpenAI-style chat, streaming or not. Proxied to
+  local vLLM (Gemma 4 31B). Enabled when BRAIN_MODEL_LOCATION is set.
 - POST /v1/audio/speech: {"input": text} in, WAV bytes out. Kokoro on CUDA in
   this process.
-- GET /healthz: 200 when both halves are ready.
-
-vLLM runs as a second process on this same GPU (started by start.sh); this app
-owns the exposed port. The layout is deliberately the same one the full
-self-hosted box will use, with the LLM added as a third consumer later.
+- GET /healthz: 200 only when every enabled model process is ready.
 """
 import io
 import os
@@ -20,9 +17,12 @@ import wave
 import httpx
 import numpy as np
 from fastapi import FastAPI, Request, UploadFile
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from starlette.background import BackgroundTask
 
 VLLM_URL = os.environ.get("VLLM_URL", "http://127.0.0.1:8001")
+BRAIN_URL = os.environ.get("BRAIN_URL", "http://127.0.0.1:8002")
+BRAIN_ENABLED = bool(os.environ.get("BRAIN_MODEL_LOCATION"))
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "openai/whisper-large-v3-turbo")
 SAMPLE_RATE = 24000
 
@@ -59,6 +59,33 @@ async def transcribe(file: UploadFile):
     return JSONResponse(resp.json(), status_code=resp.status_code)
 
 
+@app.post("/v1/chat/completions")
+async def chat_completions(request: Request):
+    """Streaming-safe proxy to the brain vLLM. LiteLLM/ADK talk to this."""
+    if not BRAIN_ENABLED:
+        return JSONResponse({"error": "no brain configured on this box"}, status_code=404)
+    body = await request.body()
+    client = httpx.AsyncClient(timeout=None)
+    upstream = await client.send(
+        client.build_request(
+            "POST", f"{BRAIN_URL}/v1/chat/completions",
+            content=body, headers={"Content-Type": "application/json"},
+        ),
+        stream=True,
+    )
+
+    async def cleanup():
+        await upstream.aclose()
+        await client.aclose()
+
+    return StreamingResponse(
+        upstream.aiter_raw(),
+        status_code=upstream.status_code,
+        media_type=upstream.headers.get("content-type", "application/json"),
+        background=BackgroundTask(cleanup),
+    )
+
+
 def _kokoro_pipeline():
     global _kokoro
     if _kokoro is None:
@@ -90,12 +117,18 @@ async def speak(request: Request):
     return Response(buf.getvalue(), media_type="audio/wav")
 
 
-@app.get("/healthz")
-async def healthz():
+async def _ok(url: str) -> bool:
     try:
         async with httpx.AsyncClient(timeout=5) as client:
-            v = await client.get(f"{VLLM_URL}/health")
-        vllm_ok = v.status_code == 200
+            return (await client.get(url)).status_code == 200
     except Exception:  # noqa: BLE001
-        vllm_ok = False
-    return JSONResponse({"vllm": vllm_ok}, status_code=200 if vllm_ok else 503)
+        return False
+
+
+@app.get("/healthz")
+@app.get("/health")
+async def healthz():
+    ears = await _ok(f"{VLLM_URL}/health")
+    brain = (await _ok(f"{BRAIN_URL}/health")) if BRAIN_ENABLED else True
+    ready = ears and brain
+    return JSONResponse({"ears": ears, "brain": brain}, status_code=200 if ready else 503)
