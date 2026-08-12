@@ -16,6 +16,10 @@ import traceback
 
 from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 
+import telemetry
+
+telemetry.setup()  # must run before the ADK Runner exists
+
 import model
 import speech_client
 
