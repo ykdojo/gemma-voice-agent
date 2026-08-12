@@ -4,8 +4,8 @@ A voice customer-service agent that is fully self-hosted: ask a question by voic
 searches a knowledge base, and answers back in voice, with no external AI APIs. Built entirely on
 open-weights models. **Your data, your infra, your control.**
 
-> **Fully self-hosted.** Voice in (**Whisper** via vLLM), the brain (**Gemma 4 31B** via
-> vLLM, orchestrated with ADK through LiteLLM), and voice out (**Kokoro**) all run in one
+> **Fully self-hosted.** Speech-to-text (**Whisper** via vLLM), the brain (**Gemma 4 31B**
+> via vLLM, orchestrated with ADK through LiteLLM), and text-to-speech (**Kokoro**) all run in one
 > Cloud Run GPU service ([`gpu-speech/`](gpu-speech/)). Three open-weights models, no
 > external AI APIs.
 
@@ -19,10 +19,10 @@ with a thin CPU service in front for the chat UI and agent loop:
 
 | Stage | Component |
 |---|---|
-| Voice in | **Whisper large-v3-turbo** (vLLM) |
+| Speech-to-text | **Whisper large-v3-turbo** (vLLM) |
 | Agent loop / tool use | **Gemma 4 31B** (vLLM), orchestrated with **ADK** via LiteLLM |
 | Knowledge lookup | OpenAlex paper search (stand-in for your in-infra data source) |
-| Voice out | **Kokoro** (82M) on the same GPU |
+| Text-to-speech | **Kokoro** (82M) on the same GPU |
 | Frontend | Basic chat interface: type or talk, replies come back as text and voice |
 
 The GPU box sleeps when idle; the app detects that, wakes it on page load, and shows an
@@ -55,8 +55,8 @@ Early days. Building in the open, step by step:
 - [x] Step 1: verify a GPU container runs on Cloud Run, see [`hello-gpu/`](hello-gpu/)
 - [x] Web frontend: chat with both text and voice input, waveform playback bar for voice replies
 - [x] Paper-lookup tool (OpenAlex) wired into the agent loop (ADK migration: [#1](https://github.com/delfinadap/gemma-voice-agent/issues/1))
-- [x] Voice in and voice out self-hosted on a Cloud Run GPU: Whisper (vLLM) + Kokoro in
-      [`gpu-speech/`](gpu-speech/), the app's only speech path
+- [x] Speech-to-text and text-to-speech self-hosted on a Cloud Run GPU: Whisper (vLLM) +
+      Kokoro in [`gpu-speech/`](gpu-speech/), the app's only speech path
 - [x] Interim Gemini brain swapped for **self-hosted Gemma 4 31B**, merged into the same
       GPU box as the speech models
 - [x] Cold-start UX: wake-on-page-load, status overlay, in-stream waking events, retries
