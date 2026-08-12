@@ -42,13 +42,29 @@ def _post_with_retry(url: str, **kwargs) -> requests.Response:
     raise last_error
 
 
-def _token() -> str:
+def _token(audience: str | None = None) -> str:
     try:
-        return id_token.fetch_id_token(Request(), BASE)
+        return id_token.fetch_id_token(Request(), audience or BASE)
     except Exception:  # noqa: BLE001 - local dev: user creds can't mint ID tokens
         return subprocess.check_output(
             "gcloud auth print-identity-token -q", shell=True
         ).decode().strip()
+
+
+def awake(base: str, path: str = "/healthz") -> bool:
+    """Fast probe: is an instance of this scale-to-zero service already up?
+    A cold service won't answer within the short timeout (and the aborted request
+    conveniently kicks off its startup), so False means 'warn the user and expect
+    a slow first turn', not 'broken'."""
+    try:
+        resp = requests.get(
+            f"{base}{path}",
+            headers={"Authorization": f"Bearer {_token(base)}"},
+            timeout=3,
+        )
+        return resp.status_code == 200
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def transcribe(audio: bytes, mime: str = "audio/webm") -> str:

@@ -52,6 +52,17 @@ def chat():
     def generate():
         yield json.dumps({"type": "meta", "speech_available": os.environ.get("DISABLE_TTS") != "1"}) + "\n"
         try:
+            # The GPU services scale to zero; probe the ones this turn needs and be
+            # honest about the wait. The probes also kick their startups off early.
+            model_base = os.environ.get("MODEL_API_BASE", "").rstrip("/")
+            cold = (model_base and not speech_client.awake(model_base, "/health")) or (
+                audio and speech_client.enabled() and not speech_client.awake(speech_client.BASE)
+            )
+            if cold:
+                yield json.dumps({
+                    "type": "status",
+                    "status": "Waking up the GPU (it sleeps when idle) - the first reply can take a few minutes",
+                }) + "\n"
             message = text
             if audio:
                 transcript = speech_client.transcribe(audio, audio_mime)
