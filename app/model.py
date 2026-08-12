@@ -266,6 +266,13 @@ def _event_dicts(events, state):
         except Exception:  # noqa: BLE001
             pass
         if event.content and event.content.parts:
+            # The model reasons before it answers; those tokens are hidden below,
+            # so surface the phase once instead of leaving the user on bare dots.
+            if not state.get("thinking_shown") and any(
+                getattr(p, "thought", False) for p in event.content.parts
+            ):
+                state["thinking_shown"] = True
+                yield {"type": "status", "status": "Thinking"}
             # Skip thought parts: reasoning models (Gemma via vLLM) stream their
             # chain-of-thought as parts flagged thought=True, which is not for users.
             chunk = "".join(
