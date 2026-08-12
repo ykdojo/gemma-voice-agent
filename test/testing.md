@@ -1,0 +1,104 @@
+# Testing
+
+How this app is tested, layer by layer. Every layer runs against a base URL,
+so the same checks work locally, against a deployed service, and on either
+model substrate (self-hosted GPU or hosted).
+
+## Running the app locally
+
+```sh
+cd app
+GOOGLE_CLOUD_PROJECT=<project> \
+GOOGLE_CLOUD_LOCATION=global \
+GOOGLE_GENAI_USE_ENTERPRISE=TRUE \
+AGENT_ENGINE_ID=<engine id> \
+PORT=8080 \
+uv run --with-requirements requirements.txt python server.py
+```
+
+- Substrate: add `MODEL_API_BASE` and `SPEECH_SERVICE_URL` (both the GPU box
+  URL) for the self-hosted substrate; omit them for hosted mode.
+- Omit `AGENT_ENGINE_ID` for throwaway in-memory sessions.
+- Auth locally comes from ADC (`gcloud auth application-default login`).
+  Two macOS quirks: set `SSL_CERT_FILE` to certifi's bundle (framework Python
+  has no system certs, breaks the OpenAlex tool), and make sure the ADC quota
+  project has billing (`gcloud auth application-default set-quota-project`),
+  or hosted TTS/transcription calls 403.
+
+## Layer 1: protocol smoke suite (run on every change)
+
+```sh
+test/smoke.sh <base url> <spoken wav>
+```
+
+Nine checks against the NDJSON chat protocol:
+
+- text chat: first event is `meta`; a `done` event carries text; no `error`
+  events ("Say only the word pong." should come back as pong, not the
+  fallback apology - the fallback passing is a known blind spot, so eyeball it)
+- tool chat: a `status` event appears (the UI's "Searching papers"), then `done`
+- audio chat: one multipart POST; the `transcript` event must contain the
+  spoken question (the wav asks about REM sleep, so it greps for "sleep");
+  `done` arrives; no `error` events
+- speak: returns valid base64 WAV (RIFF header, >1KB)
+
+Generate the spoken wav on macOS:
+`say -v Samantha -r 150 -o q.aiff "What papers do you have about R E M sleep?"
+&& afconvert -f WAVE -d LEI16@16000 -c 1 q.aiff question.wav`
+
+## Layer 2: conversation lifecycle (persistent sessions)
+
+No script yet - curl sequence, in order:
+
+```sh
+SID="test-$(date +%s)"
+curl -X POST $BASE/chat -H 'Content-Type: application/json' \
+  -d "{\"text\":\"Say only the word banana.\",\"session_id\":\"$SID\"}"
+curl $BASE/conversations                       # lists $SID, auto-titled from the message
+curl $BASE/conversations/$SID/messages         # replays user + bot turns
+curl -X PATCH $BASE/conversations/$SID -H 'Content-Type: application/json' \
+  -d '{"title":"Renamed"}'                     # rename via state-delta event
+curl $BASE/conversations                       # shows the new title
+curl -X DELETE $BASE/conversations/$SID
+```
+
+Cross-instance persistence check: run a chat against the deployed service,
+then `curl http://127.0.0.1:8080/conversations` on a local server pointed at
+the same `AGENT_ENGINE_ID` - the conversation must appear there too.
+
+## Layer 3: UI checks (browser, after frontend changes)
+
+Manual or driven via browser automation:
+
+- send a text message: user bubble immediately, dots, streamed reply, voice bar
+- record a voice note: "Transcribing" placeholder replaced by the transcript
+  from the stream (one upload; there is no /transcribe endpoint anymore)
+- drawer: hamburger opens it; conversations listed newest-first with titles;
+  switch replays history (loading dots while it fetches); rename inline (✎),
+  delete (✕), New starts fresh
+- empty states: a fresh or empty conversation shows the dimmed hint, which
+  clears on the first message
+- reply quality: no chain-of-thought text in any reply (thought parts are
+  filtered; a leak looks like "The user wants me to...")
+- cold GPU (self-hosted substrate only): a cold page load shows the wake
+  overlay with elapsed timer, which dismisses when /status reports ready
+
+## Layer 4: cold-start UX (self-hosted substrate, on demand - costs a GPU boot)
+
+```sh
+GPU_PROJECT=<project> test/cold.sh <app url> <wav>
+```
+
+Forces the GPU service(s) cold (env-bump revision), then asserts: /status
+reports not-ready; an audio chat sent while cold emits the "Waking up the GPU"
+status event and still completes; /status recovers to ready. Quirk: the
+forcing update boots the new revision to verify it, which can leave a box
+warm - the test uses an audio turn so the reliably-cold speech path is
+exercised. Don't run in CI.
+
+## Known blind spots
+
+- The mic itself (getUserMedia) can't be automated - test by hand on a phone
+  against an HTTPS deployment.
+- smoke.sh's text check accepts any done text, including the fallback apology.
+- IAP (once enabled) only exists deployed; local runs use the `dev` user.
