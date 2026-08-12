@@ -11,6 +11,7 @@ import asyncio
 import os
 import subprocess
 import threading
+import time
 import uuid
 
 from google.adk.agents import Agent
@@ -30,25 +31,44 @@ MODEL_ID = os.environ.get("MODEL_ID", "google/gemma-4-31B-it")
 APP_NAME = "paper-voice-agent"
 
 
-def _self_hosted_model():
-    from google.adk.models.lite_llm import LiteLlm
+def _fetch_identity_token() -> str:
     from google.auth.transport.requests import Request
     from google.oauth2 import id_token
 
-    api_base = MODEL_API_BASE if MODEL_API_BASE.endswith("/v1") else MODEL_API_BASE + "/v1"
-    # The model service is private; authenticate with an identity token. Fetched once
-    # per process: instances recycle well within the token's 1h lifetime at this
-    # app's scale-to-zero usage pattern.
     try:
-        token = id_token.fetch_id_token(Request(), MODEL_API_BASE)
+        return id_token.fetch_id_token(Request(), MODEL_API_BASE)
     except Exception:  # noqa: BLE001 - local dev: user creds can't mint ID tokens
-        token = subprocess.check_output(
+        return subprocess.check_output(
             "gcloud auth print-identity-token -q", shell=True
         ).decode().strip()
+
+
+_token_fetched_at = 0.0
+_token_lock = threading.Lock()
+
+
+def _refresh_brain_token() -> None:
+    """Identity tokens live ~1 hour. Under scale-to-zero, instances never
+    outlived one; a pinned (min-instances) instance does, so refresh the token
+    the model uses whenever it is older than 45 minutes."""
+    global _token_fetched_at
+    with _token_lock:
+        if time.time() - _token_fetched_at < 2700:
+            return
+        _agent.model._additional_args["api_key"] = _fetch_identity_token()
+        _token_fetched_at = time.time()
+
+
+def _self_hosted_model():
+    from google.adk.models.lite_llm import LiteLlm
+
+    api_base = MODEL_API_BASE if MODEL_API_BASE.endswith("/v1") else MODEL_API_BASE + "/v1"
+    # The model service is private; calls carry an identity token, refreshed by
+    # _refresh_brain_token() before each turn.
     return LiteLlm(
         model=f"openai/{MODEL_ID}",
         base_url=api_base,
-        api_key=token,
+        api_key=_fetch_identity_token(),
         # Gemma 4 on vLLM wants these for thinking + clean output.
         extra_body={
             "chat_template_kwargs": {"enable_thinking": True},
@@ -232,6 +252,7 @@ def reply_stream(text: str, session_id: str = "default", user_id: str = "dev"):
         raise ValueError("need text")
     parts = [types.Part.from_text(text=text)]
 
+    _refresh_brain_token()
     # Narrate the pre-model phases so the user never sits on bare dots:
     # session round-trip, then the model's prompt prefill, then Thinking.
     yield {"type": "status", "status": "Loading conversation"}
@@ -264,6 +285,7 @@ def retry_stream(session_id: str, invocation_id: str, user_id: str = "dev"):
     """Resume a failed invocation from its last persisted event (no new user
     message; ADK re-executes the dangling step and continues). Same event
     protocol as reply_stream."""
+    _refresh_brain_token()
     agen = _runner.run_async(
         user_id=user_id, session_id=session_id, invocation_id=invocation_id
     )
