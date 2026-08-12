@@ -125,7 +125,13 @@ def reply_stream(text: str, session_id: str = "default"):
         except Exception:  # noqa: BLE001
             pass
         if event.content and event.content.parts:
-            chunk = "".join(p.text or "" for p in event.content.parts if p.text)
+            # Skip thought parts: reasoning models (Gemma via vLLM) stream their
+            # chain-of-thought as parts flagged thought=True, which is not for users.
+            chunk = "".join(
+                p.text or ""
+                for p in event.content.parts
+                if p.text and not getattr(p, "thought", False)
+            )
             if not chunk:
                 continue
             if getattr(event, "partial", False):
