@@ -3,4 +3,5 @@ gunicorn>=22.0
 google-genai>=1.16
 google-adk>=1.0
 litellm
+google-cloud-texttospeech>=2.16
 requests>=2.31

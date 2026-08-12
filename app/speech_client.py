@@ -1,9 +1,10 @@
-"""Client for the self-hosted speech GPU service (Whisper ears, Kokoro mouth).
+"""Speech I/O behind one interface, with the substrate a deploy-time choice.
 
-Enabled by setting SPEECH_SERVICE_URL; when unset, the app keeps its hosted
-backends (Gemini transcription, Cloud TTS). The service is private, so calls
-carry an identity token: fetched from the metadata server on Cloud Run, or via
-the gcloud CLI when running locally as a user.
+Default: the self-hosted GPU box (SPEECH_SERVICE_URL set) - Whisper for
+transcription, Kokoro for synthesis. Portability mode (SPEECH_SERVICE_URL
+unset): hosted Gemini transcription and Cloud Text-to-Speech. The GPU service
+is private, so calls carry an identity token: fetched from the metadata server
+on Cloud Run, or via the gcloud CLI when running locally as a user.
 """
 import os
 import subprocess
@@ -99,6 +100,8 @@ def awake(base: str, path: str = "/healthz") -> bool:
 
 
 def transcribe(audio: bytes, mime: str = "audio/webm") -> str:
+    if not enabled():
+        return _hosted_transcribe(audio, mime)
     resp = _post_with_retry(
         f"{BASE}/v1/audio/transcriptions",
         files={"file": ("audio", audio, mime)},
@@ -108,9 +111,63 @@ def transcribe(audio: bytes, mime: str = "audio/webm") -> str:
 
 
 def synthesize(text: str) -> bytes:
+    if not enabled():
+        return _hosted_synthesize(text)
     resp = _post_with_retry(
         f"{BASE}/v1/audio/speech",
         json={"input": text},
         timeout=120,
     )
     return resp.content
+
+
+# --- portability mode: hosted backends when no GPU box is configured ---------
+
+_genai_client = None
+_tts_client = None
+
+
+def _hosted_transcribe(audio: bytes, mime: str) -> str:
+    """Gemini native audio input, transcription-only prompt."""
+    global _genai_client
+    from google import genai
+    from google.genai import types
+
+    if _genai_client is None:
+        _genai_client = genai.Client(
+            vertexai=True,
+            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+        )
+    response = _genai_client.models.generate_content(
+        model=os.environ.get("TRANSCRIBE_MODEL", "gemini-2.5-flash"),
+        contents=[
+            types.Part.from_bytes(data=audio, mime_type=mime),
+            types.Part.from_text(
+                text="Transcribe this audio verbatim. Reply with only the transcription, no quotes."
+            ),
+        ],
+        config=types.GenerateContentConfig(temperature=0),
+    )
+    return (response.text or "").strip()
+
+
+def _hosted_synthesize(text: str) -> bytes:
+    """Cloud Text-to-Speech, LINEAR16 24kHz mono WAV."""
+    global _tts_client
+    from google.cloud import texttospeech
+
+    if _tts_client is None:
+        _tts_client = texttospeech.TextToSpeechClient()
+    voice_name = os.environ.get("CLOUDTTS_VOICE", "en-US-Chirp3-HD-Aoede")
+    response = _tts_client.synthesize_speech(
+        input=texttospeech.SynthesisInput(text=text),
+        voice=texttospeech.VoiceSelectionParams(
+            language_code="-".join(voice_name.split("-")[:2]), name=voice_name
+        ),
+        audio_config=texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.LINEAR16,
+            sample_rate_hertz=24000,
+        ),
+    )
+    return response.audio_content
