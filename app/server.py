@@ -22,18 +22,21 @@ import speech_client
 app = Flask(__name__, static_folder="static")
 
 
-def _prewarm():
-    """Fire-and-forget wake probes at app-process start: the moment this (fast,
-    CPU-only) service comes up for any reason, the (slow, scale-to-zero) GPU
-    boxes start booting too, without waiting for the page's JS to poll /status."""
-    model_base = os.environ.get("MODEL_API_BASE", "").rstrip("/")
-    if model_base:
-        speech_client.awake(model_base, "/health")
+MODEL_BASE = os.environ.get("MODEL_API_BASE", "").rstrip("/")
+
+
+def _wake_gpus():
+    """Start (or keep) long-held waker requests against both GPU boxes so Cloud Run
+    boots them. Idempotent: one waker per box at a time, no-ops when warm."""
+    if MODEL_BASE:
+        speech_client.ensure_waking(MODEL_BASE, "/health")
     if speech_client.enabled():
-        speech_client.awake(speech_client.BASE)
+        speech_client.ensure_waking(speech_client.BASE)
 
 
-threading.Thread(target=_prewarm, daemon=True).start()
+# The moment this (fast, CPU-only) service comes up for any reason, the (slow,
+# scale-to-zero) GPU boxes start booting too - before any page JS runs.
+_wake_gpus()
 
 
 def _parse_request():
@@ -62,11 +65,12 @@ def index():
 
 @app.get("/status")
 def status():
-    """Are the scale-to-zero GPU boxes awake? Probing a cold one also starts it,
-    so the frontend polling this at page load doubles as the wake-up trigger."""
-    model_base = os.environ.get("MODEL_API_BASE", "").rstrip("/")
-    model_ok = speech_client.awake(model_base, "/health") if model_base else True
+    """Are the scale-to-zero GPU boxes awake? Any not-ready answer also (re)arms
+    the long-held waker requests that actually drive their boot."""
+    model_ok = speech_client.awake(MODEL_BASE, "/health") if MODEL_BASE else True
     speech_ok = speech_client.awake(speech_client.BASE) if speech_client.enabled() else True
+    if not (model_ok and speech_ok):
+        _wake_gpus()
     return jsonify({"model": model_ok, "speech": speech_ok, "ready": model_ok and speech_ok})
 
 
@@ -78,12 +82,12 @@ def chat():
         yield json.dumps({"type": "meta", "speech_available": os.environ.get("DISABLE_TTS") != "1"}) + "\n"
         try:
             # The GPU services scale to zero; probe the ones this turn needs and be
-            # honest about the wait. The probes also kick their startups off early.
-            model_base = os.environ.get("MODEL_API_BASE", "").rstrip("/")
-            cold = (model_base and not speech_client.awake(model_base, "/health")) or (
+            # honest about the wait, while the wakers drive the actual boot.
+            cold = (MODEL_BASE and not speech_client.awake(MODEL_BASE, "/health")) or (
                 audio and speech_client.enabled() and not speech_client.awake(speech_client.BASE)
             )
             if cold:
+                _wake_gpus()
                 yield json.dumps({
                     "type": "status",
                     "status": "Waking up the GPU (it sleeps when idle) - the first reply can take a few minutes",

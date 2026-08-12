@@ -7,6 +7,7 @@ the gcloud CLI when running locally as a user.
 """
 import os
 import subprocess
+import threading
 import time
 
 import requests
@@ -51,11 +52,41 @@ def _token(audience: str | None = None) -> str:
         ).decode().strip()
 
 
+_wakers: dict[str, threading.Thread] = {}
+_wakers_lock = threading.Lock()
+
+
+def ensure_waking(base: str, path: str = "/healthz") -> None:
+    """Hold a long request against a cold service so Cloud Run actually boots an
+    instance. Short aborted probes (awake) don't reliably drive a start; this does.
+    One waker per service at a time; no-op if one is already in flight."""
+
+    def _hold():
+        try:
+            requests.get(
+                f"{base}{path}",
+                headers={"Authorization": f"Bearer {_token(base)}"},
+                timeout=420,
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            with _wakers_lock:
+                _wakers.pop(base, None)
+
+    with _wakers_lock:
+        t = _wakers.get(base)
+        if t is not None and t.is_alive():
+            return
+        t = threading.Thread(target=_hold, daemon=True)
+        _wakers[base] = t
+        t.start()
+
+
 def awake(base: str, path: str = "/healthz") -> bool:
     """Fast probe: is an instance of this scale-to-zero service already up?
-    A cold service won't answer within the short timeout (and the aborted request
-    conveniently kicks off its startup), so False means 'warn the user and expect
-    a slow first turn', not 'broken'."""
+    False means 'warn the user and expect a slow first turn', not 'broken'.
+    This only reports; pair with ensure_waking() to actually drive the boot."""
     try:
         resp = requests.get(
             f"{base}{path}",

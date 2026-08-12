@@ -4,11 +4,15 @@
 # while cold emits the waking-up status event and still completes.
 #
 # Costs a real GPU cold start per run (several minutes) - run on demand, not in CI.
+# Quirk: forcing cold via a service update boots the new revision to verify it,
+# which can leave that box warm again. The speech box reliably ends up cold, so
+# layer 2 uses an AUDIO message (needs the speech box) to guarantee a cold path.
 #
-# Usage: test/cold.sh [APP_URL]
+# Usage: test/cold.sh [APP_URL] [WAV_FILE]
 set -uo pipefail
 
 APP="${1:-https://paper-voice-agent-dev-913990660147.us-central1.run.app}"
+WAV="${2:?need a wav file for the audio turn}"
 MODEL_SVC="gemma4-rtx-vllm-codelab"
 SPEECH_SVC="speech-gpu"
 GPU_PROJECT="adk-bq-mcp-10524"
@@ -30,11 +34,11 @@ s=$(curl -sS --max-time 30 "$APP/status")
 echo "  $s"
 echo "$s" | grep -q '"ready":false' && ok "status reports not-ready while cold" || bad "status did not report cold: $s"
 
-echo "== layer 2: chat sent while cold =="
+echo "== layer 2: audio chat sent while cold =="
 resp=$(curl -sS --max-time 590 -X POST "$APP/chat" \
-  -H 'Content-Type: application/json' \
-  -d '{"text": "Say only the word pong.", "session_id": "cold-test"}')
+  -F "audio=@$WAV;type=audio/wav" -F "session_id=cold-test")
 echo "$resp" | grep -q '"Waking up the GPU' && ok "waking-up status event emitted" || bad "no waking-up status event"
+echo "$resp" | grep -q '"type": *"transcript"' && ok "transcript arrived after wake" || bad "no transcript event"
 echo "$resp" | grep -q '"type": *"done"' && ok "turn completed despite cold start" || bad "turn did not complete"
 echo "$resp" | grep -q '"type": *"error"' && bad "error event in cold-start stream" || ok "no error events"
 
