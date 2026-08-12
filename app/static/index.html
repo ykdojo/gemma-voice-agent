@@ -235,6 +235,16 @@ gate.innerHTML =
 document.body.appendChild(gate);
 
 (async function gpuGate() {
+  // The composer starts disabled until the first status check resolves, so a
+  // fast typist can't send into a cold box during the pre-overlay gap.
+  const composer = [document.getElementById("text"), document.getElementById("send"), document.getElementById("mic")];
+  composer.forEach((el) => { el.disabled = true; });
+  let composerUnlocked = false;
+  const unlockComposer = () => {
+    if (composerUnlocked) return;
+    composerUnlocked = true;
+    composer.forEach((el) => { el.disabled = false; });
+  };
   // Elapsed display is anchored to the server's wake-start time (survives page
   // refreshes) and ticks locally every second between /status polls.
   let base = 0, baseAt = Date.now();
@@ -250,11 +260,13 @@ document.body.appendChild(gate);
       if (s.ready) break;
       if (s.waking_seconds) { base = s.waking_seconds; baseAt = Date.now(); }
       gate.classList.add("show");
+      unlockComposer();  // the overlay covers the page now; no send-into-the-void risk
     } catch (e) { /* app itself unreachable; keep trying */ }
     await new Promise((r) => setTimeout(r, 5000));
   }
   clearInterval(tick);
   gate.classList.remove("show");
+  unlockComposer();
 })();
 
 const chat = document.getElementById("chat");
