@@ -165,9 +165,9 @@ to CPU-only afterward (revision 00009).
 
 ## Update (2026-08-11 late): partial thaw - GPU quota granted, memory cap remains
 
-Re-test in a different, GPU-proven project (`adk-bq-mcp-10524`, which had deployed
-RTX 6000 Pro services all day under a promotional credit billing account) after
-relinking it to this personal billing account:
+Re-test in a different, GPU-proven project (one that had deployed RTX 6000 Pro
+services all day under a promotional credit billing account) after relinking it
+to this personal billing account:
 
 - `NvidiaRtxPro6000GpuAllocNoZonalRedundancyPerProjectRegion` (us-central1): **granted**
   (nonzero). The July "GPU quota stuck at 0" wall is gone on this account.

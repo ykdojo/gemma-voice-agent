@@ -8,21 +8,22 @@
 # which can leave that box warm again. The speech box reliably ends up cold, so
 # layer 2 uses an AUDIO message (needs the speech box) to guarantee a cold path.
 #
-# Usage: test/cold.sh [APP_URL] [WAV_FILE]
+# Usage: GPU_PROJECT=<project> test/cold.sh <APP_URL> <WAV_FILE>
+# Optional env: MODEL_SVC, SPEECH_SVC, REGION.
 set -uo pipefail
 
-APP="${1:-https://paper-voice-agent-dev-913990660147.us-central1.run.app}"
+APP="${1:?need the app URL}"
 WAV="${2:?need a wav file for the audio turn}"
-MODEL_SVC="gemma4-rtx-vllm-codelab"
-SPEECH_SVC="speech-gpu"
-GPU_PROJECT="adk-bq-mcp-10524"
-REGION="us-central1"
+MODEL_SVC="${MODEL_SVC:-speech-gpu}"
+SPEECH_SVC="${SPEECH_SVC:-speech-gpu}"
+GPU_PROJECT="${GPU_PROJECT:?set GPU_PROJECT to the project hosting the GPU services}"
+REGION="${REGION:-us-central1}"
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "PASS: $1"; }
 bad() { FAIL=$((FAIL+1)); echo "FAIL: $1"; }
 
 echo "== forcing GPU services cold (new revisions, no traffic) =="
-for svc in "$MODEL_SVC" "$SPEECH_SVC"; do
+for svc in $(printf "%s\n%s\n" "$MODEL_SVC" "$SPEECH_SVC" | sort -u); do
   gcloud run services update "$svc" --project "$GPU_PROJECT" --region "$REGION" \
     --update-env-vars "COLD_TEST_MARKER=$(date +%s)" --quiet >/dev/null 2>&1 &&
     echo "  $svc: new revision (instance drained)"
