@@ -6,14 +6,30 @@ database, docs, or search engine living in the same infra.
 import urllib.parse
 import urllib.request
 import json
+import time
 
 MAILTO = "paper-search@example.com"
+UNAVAILABLE = (
+    "The paper search service is temporarily unavailable. Tell the user and suggest trying again "
+    "in a moment; do not invent papers."
+)
 
 
 def _get(url: str) -> dict:
-    req = urllib.request.Request(url, headers={"User-Agent": f"gemma-voice-agent (mailto:{MAILTO})"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        return json.load(resp)
+    """GET with a couple of retries: OpenAlex throws occasional 5xx, and a transient
+    failure should not kill the whole agent turn."""
+    last_error = None
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": f"gemma-voice-agent (mailto:{MAILTO})"}
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                return json.load(resp)
+        except Exception as e:  # noqa: BLE001
+            last_error = e
+            time.sleep(1.0 * (attempt + 1))
+    raise last_error
 
 
 def _abstract_from_inverted_index(inv: dict | None, limit: int = 400) -> str:
@@ -35,7 +51,10 @@ def search_papers(query: str, limit: int = 5, sort: str = "relevance") -> str:
         "https://api.openalex.org/works?search=" + urllib.parse.quote(query)
         + f"&per_page={min(int(limit), 10)}&sort={sort_map.get(sort, sort_map['relevance'])}&mailto={MAILTO}"
     )
-    data = _get(url)
+    try:
+        data = _get(url)
+    except Exception:  # noqa: BLE001 - degrade instead of killing the turn
+        return UNAVAILABLE
     lines = []
     for i, work in enumerate(data.get("results", []), 1):
         authors = ", ".join(a["author"]["display_name"] for a in work.get("authorships", [])[:3])
@@ -56,7 +75,10 @@ def get_paper(doi_or_openalex_id: str) -> str:
     else:
         doi = ident.removeprefix("https://doi.org/")
         url = f"https://api.openalex.org/works/doi:{urllib.parse.quote(doi)}?mailto={MAILTO}"
-    w = _get(url)
+    try:
+        w = _get(url)
+    except Exception:  # noqa: BLE001 - degrade instead of killing the turn
+        return UNAVAILABLE
     authors = ", ".join(a["author"]["display_name"] for a in w.get("authorships", [])[:10])
     return (
         f"{w.get('title')}\nYear: {w.get('publication_year')}\nAuthors: {authors}\n"
