@@ -120,6 +120,35 @@ button. Rules verified: the fallback apology only appears when the model
 genuinely returns empty text after a healthy turn; empty-output turns are
 treated as failures.
 
+## Layer 6: behavior eval (on demand; costs model + judge calls)
+
+```sh
+cd eval && uv run --with-requirements ../app/requirements.txt \
+  --with pytest,pytest-asyncio,rouge-score --with "google-adk[gcp,eval]>=2.4" \
+  python -m pytest run_eval.py -s
+```
+
+Six cases in `eval/paper_search.evalset.json`: three that must call the search
+tool, two that must not (greeting, capability question), one ambiguity case
+that should ask for clarification. Scored by an LLM judge
+(final_response_match_v2, threshold 0.7, judge stays Gemini) against
+rubric-style references; exact tool-args matching and ROUGE are deliberately
+not used (brittle across models). The candidate model follows the app env
+vars, so run it once per substrate and compare. Never gate on the `adk eval`
+CLI exit code (always 0 in ADK 2.4).
+
+## Layer 7: observability spot-check
+
+After a deployed turn, traces should appear in Cloud Trace (Trace Explorer,
+service name from OTEL_SERVICE_NAME): one trace per turn with agent, model
+call, and tool spans. Requires roles/telemetry.writer on the service account
+and `--no-cpu-throttling` (throttled CPU delays span export). Query quickly:
+
+```sh
+curl -s "https://cloudtrace.googleapis.com/v1/projects/<project>/traces?startTime=<iso>&view=ROOTSPAN" \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)"
+```
+
 ## Known blind spots
 
 - The mic itself (getUserMedia) can't be automated - test by hand on a phone

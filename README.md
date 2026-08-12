@@ -28,6 +28,27 @@ with a thin CPU service in front for the chat UI and agent loop:
 The GPU box sleeps when idle; the app detects that, wakes it on page load, and shows an
 honest status (overlay on load, an in-stream event mid-conversation) while it boots.
 
+![Architecture](docs/architecture.svg)
+
+## How it fits together
+
+Two Cloud Run services with one seam between them:
+
+- **The app** ([`app/`](app/)) is a small CPU service: the chat page, the ADK agent
+  loop, and thin authenticated clients for the GPU box. A voice note is transcribed
+  once (Whisper), the transcript fills your chat bubble and feeds the brain as text,
+  and the reply is spoken on demand (Kokoro) after the text streams in. Conversations
+  persist in Agent Engine Sessions, keyed per user; a failed turn surfaces an honest
+  error and can be resumed from where it stopped (ADK invocation resume). Every turn
+  emits OpenTelemetry spans to Cloud Trace.
+- **The GPU box** ([`gpu-speech/`](gpu-speech/)) is where all three models live on one
+  RTX 6000 Pro: two vLLM processes (Whisper, Gemma 4 31B) plus Kokoro inside the
+  FastAPI router that owns the exposed port. It scales to zero; the big weights stream
+  from a public GCS bucket at boot.
+- **Tests** ([`test/`](test/), documented in [`test/testing.md`](test/testing.md)) run
+  against any base URL, and the eval harness ([`eval/`](eval/)) judges the agent's
+  behavior itself: tool usage and grounded answers, LLM-scored.
+
 ## Why ADK?
 
 This project is simple enough that everything here could be hand-rolled: the
