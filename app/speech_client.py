@@ -7,16 +7,39 @@ the gcloud CLI when running locally as a user.
 """
 import os
 import subprocess
+import time
 
 import requests
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 
 BASE = os.environ.get("SPEECH_SERVICE_URL", "").rstrip("/")
+# The speech service scales to zero; while an instance boots, Cloud Run answers
+# 429 (no capacity). Retry through a cold start instead of failing the turn.
+RETRY_DELAYS = (5, 10, 20, 40, 60)
 
 
 def enabled() -> bool:
     return bool(BASE)
+
+
+def _post_with_retry(url: str, **kwargs) -> requests.Response:
+    last_error = None
+    for delay in RETRY_DELAYS + (None,):
+        try:
+            resp = requests.post(
+                url, headers={"Authorization": f"Bearer {_token()}"}, **kwargs
+            )
+            if resp.status_code not in (429, 500, 503):
+                resp.raise_for_status()
+                return resp
+            last_error = requests.HTTPError(f"{resp.status_code} from {url}", response=resp)
+        except (requests.ConnectionError, requests.Timeout) as e:
+            last_error = e
+        if delay is None:
+            break
+        time.sleep(delay)
+    raise last_error
 
 
 def _token() -> str:
@@ -29,22 +52,18 @@ def _token() -> str:
 
 
 def transcribe(audio: bytes, mime: str = "audio/webm") -> str:
-    resp = requests.post(
+    resp = _post_with_retry(
         f"{BASE}/v1/audio/transcriptions",
         files={"file": ("audio", audio, mime)},
-        headers={"Authorization": f"Bearer {_token()}"},
         timeout=120,
     )
-    resp.raise_for_status()
     return (resp.json().get("text") or "").strip()
 
 
 def synthesize(text: str) -> bytes:
-    resp = requests.post(
+    resp = _post_with_retry(
         f"{BASE}/v1/audio/speech",
         json={"input": text},
-        headers={"Authorization": f"Bearer {_token()}"},
         timeout=120,
     )
-    resp.raise_for_status()
     return resp.content
