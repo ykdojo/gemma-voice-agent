@@ -17,8 +17,7 @@ The front process (FastAPI, exposed port) routes:
 - `POST /v1/audio/speech` - text in, WAV out
 - `GET /healthz` (also `/health`) - 200 only when every enabled model is ready
 
-Deploy (see the exact flags in the repo's plan doc; the service is private,
-callers need `roles/run.invoker`):
+Deploy (the service is private, callers need `roles/run.invoker`):
 
 ```sh
 gcloud beta run deploy speech-gpu --source . \

@@ -7,9 +7,7 @@ open-weights models. **Your data, your infra, your control.**
 > **Fully self-hosted.** Voice in (**Whisper** via vLLM), the brain (**Gemma 4 31B** via
 > vLLM, orchestrated with ADK through LiteLLM), and voice out (**Kokoro**) all run in one
 > Cloud Run GPU service ([`gpu-speech/`](gpu-speech/)). Three open-weights models, no
-> external AI APIs. The build log lives in
-> [docs/self-hosted-plan.md](docs/self-hosted-plan.md); the July GPU-quota blocker
-> ([docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md)) is resolved.
+> external AI APIs.
 
 The knowledge base in this demo is scientific papers, standing in for whatever *your* private data
 source is: an internal database, docs, or search engine.
@@ -60,5 +58,5 @@ Early days. Building in the open, step by step:
 - [x] Voice in and voice out self-hosted on a Cloud Run GPU: Whisper (vLLM) + Kokoro in
       [`gpu-speech/`](gpu-speech/), the app's only speech path
 - [x] Interim Gemini brain swapped for **self-hosted Gemma 4 31B**, merged into the same
-      GPU box as the speech models (see [docs/self-hosted-plan.md](docs/self-hosted-plan.md))
+      GPU box as the speech models
 - [x] Cold-start UX: wake-on-page-load, status overlay, in-stream waking events, retries
