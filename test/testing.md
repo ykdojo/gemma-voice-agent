@@ -70,11 +70,23 @@ Manual or driven via browser automation:
 - send a text message: user bubble immediately, dots, streamed reply, voice bar
 - record a voice note: "Transcribing" placeholder replaced by the transcript
   from the stream (one upload; there is no /transcribe endpoint anymore)
-- drawer: hamburger opens it; conversations listed newest-first with titles;
-  switch replays history (loading dots while it fetches); rename inline (✎),
-  delete (✕), New starts fresh
-- empty states: a fresh or empty conversation shows the dimmed hint, which
-  clears on the first message
+- drawer: hamburger opens it; first open shows loading dots, reopening
+  renders instantly from the in-memory cache and refreshes in the background;
+  conversations listed newest-first; rename shows a save check (✓) while
+  editing; delete needs two taps (✕ arms to a red ?); New starts fresh;
+  Sign out at the bottom clears the IAP session
+- conversation URLs: every conversation owns ?c=<id>; refreshing or reopening
+  that URL lands back in it with history replayed
+- turn narration: dots, then Loading conversation, Waiting for the model,
+  Thinking, Searching papers (when a tool runs), then streaming text
+- replayed history: every bot message carries a voice bar; first play shows a
+  loading state, then fetches from the voice cache (or re-synthesizes) and
+  plays in place without scrolling
+- empty states: a fresh or empty conversation shows the example-question hint,
+  which clears on the first message; an empty drawer says "No conversations
+  yet."
+- session pre-create: page load and New fire POST /conversations/<id>/prepare
+  in the background, so a first message should not pay session creation
 - reply quality: no chain-of-thought text in any reply (thought parts are
   filtered; a leak looks like "The user wants me to...")
 - cold GPU: a cold page load shows the wake banner with the server-anchored
@@ -157,6 +169,20 @@ needs full payloads for debugging.
 
 The Flask request span and the ADK turn span are currently separate traces
 (the runner's thread starts its own context) - known, acceptable for now.
+
+## Layer 8: session-backend benchmark (on demand)
+
+```sh
+cd app && GOOGLE_CLOUD_PROJECT=<project> AGENT_ENGINE_ID=<engine id> \
+  uv run --with-requirements requirements.txt python ../test/bench_sessions.py
+```
+
+Times every session operation (n=5, medians) against the in-memory backend
+and Agent Engine, plus a raw-REST probe of the same API with the SDK
+bypassed. Reproduces the writeup's latency table. Key reference points from
+2026-08-12: ~1.2-1.6s per op via the ADK client path, ~0.16s raw REST,
+create can exceed 15s on the first call in a process. The gap is client-path
+overhead (google-adk 2.6.3 constructs a new API client per operation).
 
 ## Known blind spots
 
