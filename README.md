@@ -60,3 +60,20 @@ Early days. Building in the open, step by step:
 - [x] Interim Gemini brain swapped for **self-hosted Gemma 4 31B**, merged into the same
       GPU box as the speech models
 - [x] Cold-start UX: wake-on-page-load, status overlay, in-stream waking events, retries
+
+## Next steps: prototype to production
+
+The prototype works end to end. The next stage leans on the parts of ADK built
+for exactly this transition:
+
+- **Sessions that survive.** Conversation history and state currently live in
+  memory and die with the instance. ADK's session service makes the storage
+  backend swappable in a line, so conversations persist and can be resumed.
+- **Sign in with Google** (IAP), so each user gets their own conversations
+  without building a login system.
+- **Multiple conversations.** List past conversations, switch between them,
+  delete them, rename them - likely behind a simple hamburger menu.
+- **Observability.** Tracing for every turn: which tools ran, what the model
+  saw, where the time went.
+- **Error recovery.** Resume cleanly from a broken or interrupted turn.
+- **Evaluation.** Regression-test the agent's answers, not just the protocol.
