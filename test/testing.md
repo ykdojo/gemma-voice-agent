@@ -165,4 +165,6 @@ The Flask request span and the ADK turn span are currently separate traces
 - The mic itself (getUserMedia) can't be automated - test by hand on a phone
   against an HTTPS deployment.
 - smoke.sh's text check accepts any done text, including the fallback apology.
-- IAP (once enabled) only exists deployed; local runs use the `dev` user.
+- IAP only exists deployed (enabled on the dev service: sign-in flow, JWT
+  verification, and per-user conversation isolation all verified 2026-08-11);
+  local runs use the `dev` user.
