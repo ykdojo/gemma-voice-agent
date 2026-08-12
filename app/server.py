@@ -43,6 +43,10 @@ def _wake_gpus():
 # scale-to-zero) GPU boxes start booting too - before any page JS runs.
 _wake_gpus()
 
+# Pre-warm the session client off the request path: its first use constructs
+# and authenticates an API client (10s+), which no user turn should pay.
+threading.Thread(target=model.warm_session_client, daemon=True).start()
+
 
 def _user_id() -> str:
     """Stable per-user key. With IAP enabled, verify the signed JWT and use its

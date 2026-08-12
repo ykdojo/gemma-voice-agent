@@ -143,6 +143,15 @@ def _ensure_session(user_id: str, session_id: str, first_message: str = "") -> N
     _ensured.add(key)
 
 
+def warm_session_client() -> None:
+    """One throwaway session read at process start, so the first real turn
+    doesn't pay the client construction + auth cost inside the request."""
+    try:
+        _run(_sessions.list_sessions(app_name=APP_NAME, user_id="warmup"))
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def precreate_session(user_id: str, session_id: str) -> None:
     """Fire-and-forget creation of an upcoming conversation (from a background
     thread) so the user's first message doesn't pay the creation LRO."""
