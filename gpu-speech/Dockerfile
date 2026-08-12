@@ -5,6 +5,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends espeak-ng ffmpe
 
 RUN pip install --no-cache-dir fastapi uvicorn httpx kokoro soundfile librosa
 
+# Pin: transformers 5.15.0 breaks Gemma 4 config parsing under vLLM
+# (AmbiguousGlobalPerLayerAttributeError: 'head_dim' is per-layer;
+# https://github.com/vllm-project/vllm/issues/51744)
+RUN pip install --no-cache-dir 'transformers==5.14.1'
+
 WORKDIR /app
 COPY server.py start.sh ./
 RUN chmod +x start.sh
