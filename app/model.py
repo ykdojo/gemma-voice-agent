@@ -13,10 +13,13 @@ import asyncio
 import os
 import subprocess
 import threading
+import uuid
 
 from google.adk.agents import Agent
+from google.adk.events.event import Event
+from google.adk.events.event_actions import EventActions
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import InMemorySessionService, VertexAiSessionService
 from google.genai import types
 
 import tools
@@ -67,7 +70,18 @@ _agent = Agent(
     instruction=SYSTEM_PROMPT,
     tools=[tools.search_papers, tools.get_paper],
 )
-_sessions = InMemorySessionService()
+# Persistent sessions (Vertex Agent Engine Sessions) when AGENT_ENGINE_ID is
+# set; in-memory otherwise (local dev). The engine is an empty resource used
+# purely as a session container - nothing is deployed to it.
+AGENT_ENGINE_ID = os.environ.get("AGENT_ENGINE_ID", "")
+if AGENT_ENGINE_ID:
+    _sessions = VertexAiSessionService(
+        project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+        location=os.environ.get("SESSION_LOCATION", "us-central1"),
+        agent_engine_id=AGENT_ENGINE_ID,
+    )
+else:
+    _sessions = InMemorySessionService()
 _runner = Runner(agent=_agent, app_name=APP_NAME, session_service=_sessions)
 
 
@@ -77,20 +91,88 @@ _loop = asyncio.new_event_loop()
 threading.Thread(target=_loop.run_forever, daemon=True).start()
 
 
-def _ensure_session(user_id: str, session_id: str) -> None:
+def _run(coro):
+    return asyncio.run_coroutine_threadsafe(coro, _loop).result()
+
+
+def _ensure_session(user_id: str, session_id: str, first_message: str = "") -> None:
+    """Get-or-create; a new conversation is titled from its first message."""
     async def go():
         existing = await _sessions.get_session(
             app_name=APP_NAME, user_id=user_id, session_id=session_id
         )
         if existing is None:
+            title = (first_message or "New conversation").strip()[:48]
             await _sessions.create_session(
-                app_name=APP_NAME, user_id=user_id, session_id=session_id
+                app_name=APP_NAME, user_id=user_id, session_id=session_id,
+                state={"title": title},
             )
 
-    asyncio.run_coroutine_threadsafe(go(), _loop).result()
+    _run(go())
 
 
-def reply_stream(text: str, session_id: str = "default"):
+# --- conversation management (backs the UI drawer) ---------------------------
+
+def list_conversations(user_id: str) -> list[dict]:
+    resp = _run(_sessions.list_sessions(app_name=APP_NAME, user_id=user_id))
+    convos = sorted(resp.sessions, key=lambda s: s.last_update_time or 0, reverse=True)
+    return [
+        {
+            "id": s.id,
+            "title": (s.state or {}).get("title") or "Untitled",
+            "updated": s.last_update_time,
+        }
+        for s in convos
+    ]
+
+
+def delete_conversation(user_id: str, session_id: str) -> None:
+    _run(_sessions.delete_session(app_name=APP_NAME, user_id=user_id, session_id=session_id))
+
+
+def rename_conversation(user_id: str, session_id: str, title: str) -> None:
+    """No update-state API exists; the persistence path for state is a state_delta event."""
+    async def go():
+        session = await _sessions.get_session(
+            app_name=APP_NAME, user_id=user_id, session_id=session_id
+        )
+        if session is None:
+            raise KeyError(session_id)
+        await _sessions.append_event(
+            session,
+            Event(
+                invocation_id=f"rename-{uuid.uuid4().hex}",
+                author="user",
+                actions=EventActions(state_delta={"title": title.strip()[:48]}),
+            ),
+        )
+
+    _run(go())
+
+
+def get_history(user_id: str, session_id: str) -> list[dict]:
+    """Visible turns only: user text and final model text; no thoughts, no tool traffic."""
+    session = _run(
+        _sessions.get_session(app_name=APP_NAME, user_id=user_id, session_id=session_id)
+    )
+    if session is None:
+        return []
+    messages = []
+    for event in session.events or []:
+        if not (event.content and event.content.parts):
+            continue
+        text = "".join(
+            p.text or "" for p in event.content.parts
+            if p.text and not getattr(p, "thought", False)
+        ).strip()
+        if not text:
+            continue
+        role = "user" if event.author == "user" else "bot"
+        messages.append({"role": role, "text": text})
+    return messages
+
+
+def reply_stream(text: str, session_id: str = "default", user_id: str = "dev"):
     """Streaming turn: text in (voice notes arrive here already transcribed), yields dicts.
     type=status (tool running), delta (text chunk), done (authoritative full text).
     Falls back to one done event if streaming is unavailable."""
@@ -98,8 +180,7 @@ def reply_stream(text: str, session_id: str = "default"):
         raise ValueError("need text")
     parts = [types.Part.from_text(text=text)]
 
-    user_id = session_id
-    _ensure_session(user_id, session_id)
+    _ensure_session(user_id, session_id, first_message=text)
 
     try:
         from google.adk.agents.run_config import RunConfig, StreamingMode

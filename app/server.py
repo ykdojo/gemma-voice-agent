@@ -39,6 +39,27 @@ def _wake_gpus():
 _wake_gpus()
 
 
+def _user_id() -> str:
+    """Stable per-user key. With IAP enabled, verify the signed JWT and use its
+    `sub` claim (emails can change; sub can't). Without IAP: single dev user."""
+    assertion = request.headers.get("X-Goog-IAP-JWT-Assertion")
+    audience = os.environ.get("IAP_AUDIENCE")
+    if assertion and audience:
+        from google.auth.transport import requests as ga_requests
+        from google.oauth2 import id_token as g_id_token
+
+        claims = g_id_token.verify_token(
+            assertion,
+            ga_requests.Request(),
+            audience=audience,
+            certs_url="https://www.gstatic.com/iap/verify/public_key",
+        )
+        if claims.get("iss") != "https://cloud.google.com/iap":
+            raise PermissionError("bad IAP issuer")
+        return claims["sub"].replace(":", "_")
+    return "dev"
+
+
 def _parse_request():
     text = None
     audio = None
@@ -74,9 +95,38 @@ def status():
     return jsonify({"model": model_ok, "speech": speech_ok, "ready": model_ok and speech_ok})
 
 
+@app.get("/conversations")
+def conversations_list():
+    return jsonify({"conversations": model.list_conversations(_user_id())})
+
+
+@app.delete("/conversations/<session_id>")
+def conversations_delete(session_id):
+    model.delete_conversation(_user_id(), session_id)
+    return jsonify({"ok": True})
+
+
+@app.patch("/conversations/<session_id>")
+def conversations_rename(session_id):
+    title = ((request.get_json(silent=True) or {}).get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "no title"}), 400
+    try:
+        model.rename_conversation(_user_id(), session_id, title)
+    except KeyError:
+        return jsonify({"error": "not found"}), 404
+    return jsonify({"ok": True})
+
+
+@app.get("/conversations/<session_id>/messages")
+def conversations_messages(session_id):
+    return jsonify({"messages": model.get_history(_user_id(), session_id)})
+
+
 @app.post("/chat")
 def chat():
     text, audio, audio_mime, session_id = _parse_request()
+    user_id = _user_id()
 
     def generate():
         yield json.dumps({"type": "meta", "speech_available": os.environ.get("DISABLE_TTS") != "1"}) + "\n"
@@ -100,7 +150,7 @@ def chat():
             if not message or not message.strip():
                 yield json.dumps({"type": "error", "error": "I couldn't hear that - please try again."}) + "\n"
                 return
-            for event in model.reply_stream(text=message, session_id=session_id):
+            for event in model.reply_stream(text=message, session_id=session_id, user_id=user_id):
                 yield json.dumps(event) + "\n"
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
