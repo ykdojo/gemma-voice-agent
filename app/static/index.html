@@ -63,19 +63,15 @@
     background: var(--surface); border: 1px solid var(--border);
     border-bottom-left-radius: 5px;
   }
-  #gate {
-    position: fixed; inset: 0; z-index: 50;
-    display: none; align-items: center; justify-content: center;
-    background: var(--bg); padding: 24px; text-align: center;
+  #wake-banner {
+    display: none; align-items: center; gap: 10px;
+    padding: 10px 16px; background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px; color: var(--text-dim); line-height: 1.4;
   }
-  #gate.show { display: flex; }
-  #gate .card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; padding: 28px 32px; max-width: 26rem;
-  }
-  #gate h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; margin-top: 12px; }
-  #gate p { font-size: 13px; color: var(--text-dim); margin-top: 6px; line-height: 1.5; }
-  #gate .elapsed { font-size: 12px; color: var(--text-dim); margin-top: 12px; font-variant-numeric: tabular-nums; }
+  #wake-banner.show { display: flex; }
+  #wake-banner .elapsed { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  input:disabled, button:disabled { opacity: .55; cursor: default; }
   .dots { display: inline-flex; gap: 4px; padding: 4px 0; }
   .dots span {
     width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim);
@@ -222,36 +218,35 @@
   </button>
 </form>
 <script>
-// GPU wake gate: the model boxes scale to zero, so on page load we poll /status
-// (which itself kicks their startups) and cover the UI until they're ready.
-const gate = document.createElement("div");
-gate.id = "gate";
-gate.innerHTML =
-  '<div class="card">' +
+// GPU wake banner: the model boxes scale to zero, so on page load we poll
+// /status (which itself kicks their startups). While they boot, a slim banner
+// sits between the header and the chat, and only the composer is disabled -
+// the drawer and conversation history stay fully usable.
+const wake = document.createElement("div");
+wake.id = "wake-banner";
+wake.innerHTML =
   '<span class="dots"><span></span><span></span><span></span></span>' +
-  "<h2>Waking up the GPU</h2>" +
-  "<p>The models sleep when idle. Spinning them back up can take up to 20 minutes.</p>" +
-  '<div class="elapsed"></div></div>';
-document.body.appendChild(gate);
+  '<span>Waking up the GPU. The models sleep when idle; booting can take up to 20 minutes.</span>' +
+  '<span class="elapsed"></span>';
+document.body.insertBefore(wake, document.getElementById("chat"));
 
 (async function gpuGate() {
-  // The composer starts disabled until the first status check resolves, so a
-  // fast typist can't send into a cold box during the pre-overlay gap.
+  // Composer locked until the first status check resolves, so nothing can be
+  // sent into a cold box; everything else stays interactive.
   const composer = [document.getElementById("text"), document.getElementById("send"), document.getElementById("mic")];
-  composer.forEach((el) => { el.disabled = true; });
-  let composerUnlocked = false;
-  const unlockComposer = () => {
-    if (composerUnlocked) return;
-    composerUnlocked = true;
-    composer.forEach((el) => { el.disabled = false; });
+  const setWaking = (on) => {
+    wake.classList.toggle("show", on);
+    composer.forEach((el) => { el.disabled = on; });
+    composer[0].placeholder = on ? "The GPU is waking up..." : "Ask a question";
   };
+  composer.forEach((el) => { el.disabled = true; });
   // Elapsed display is anchored to the server's wake-start time (survives page
   // refreshes) and ticks locally every second between /status polls.
   let base = 0, baseAt = Date.now();
   const tick = setInterval(() => {
-    if (!gate.classList.contains("show") || !base) return;
+    if (!wake.classList.contains("show") || !base) return;
     const secs = base + Math.round((Date.now() - baseAt) / 1000);
-    gate.querySelector(".elapsed").textContent =
+    wake.querySelector(".elapsed").textContent =
       Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0");
   }, 1000);
   for (;;) {
@@ -259,14 +254,12 @@ document.body.appendChild(gate);
       const s = await (await fetch("/status")).json();
       if (s.ready) break;
       if (s.waking_seconds) { base = s.waking_seconds; baseAt = Date.now(); }
-      gate.classList.add("show");
-      unlockComposer();  // the overlay covers the page now; no send-into-the-void risk
+      setWaking(true);
     } catch (e) { /* app itself unreachable; keep trying */ }
     await new Promise((r) => setTimeout(r, 5000));
   }
   clearInterval(tick);
-  gate.classList.remove("show");
-  unlockComposer();
+  setWaking(false);
 })();
 
 const chat = document.getElementById("chat");
