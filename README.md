@@ -4,12 +4,12 @@ A voice customer-service agent that is fully self-hosted: ask a question by voic
 searches a knowledge base, and answers back in voice, with no external AI APIs. Built entirely on
 open-weights models. **Your data, your infra, your control.**
 
-> **Fully self-hosted now.** Voice in (**Whisper** via vLLM), the brain (**Gemma 4 31B**
-> via vLLM, orchestrated with ADK through LiteLLM), and voice out (**Kokoro**) all run in
-> one Cloud Run GPU service ([`gpu-speech/`](gpu-speech/)). No external AI APIs are in the
-> loop. A hosted-Gemini fallback remains one env var away (leave `MODEL_API_BASE` unset).
-> The build log lives in [docs/self-hosted-plan.md](docs/self-hosted-plan.md); the July
-> GPU-quota blocker ([docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md)) is resolved.
+> **Fully self-hosted.** Voice in (**Whisper** via vLLM), the brain (**Gemma 4 31B** via
+> vLLM, orchestrated with ADK through LiteLLM), and voice out (**Kokoro**) all run in one
+> Cloud Run GPU service ([`gpu-speech/`](gpu-speech/)). Three open-weights models, no
+> external AI APIs, no hosted fallbacks. The build log lives in
+> [docs/self-hosted-plan.md](docs/self-hosted-plan.md); the July GPU-quota blocker
+> ([docs/gpu-quota-blocker.md](docs/gpu-quota-blocker.md)) is resolved.
 
 The knowledge base in this demo is scientific papers, standing in for whatever *your* private data
 source is: an internal database, docs, or search engine.

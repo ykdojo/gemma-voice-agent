@@ -1,9 +1,6 @@
-"""The agent brain, behind one narrow interface so the model is swappable.
-
-The same ADK agent runs either brain: self-hosted Gemma 4 on our Cloud Run GPU
-(MODEL_API_BASE set, via LiteLlm against vLLM's OpenAI-compatible API) or hosted
-Gemini through the Cloud account (MODEL_API_BASE unset). Input is always text;
-voice notes are transcribed by the speech service before they get here.
+"""The agent brain: self-hosted Gemma 4 on our Cloud Run GPU, reached through
+ADK's LiteLlm wrapper against vLLM's OpenAI-compatible API. Input is always
+text; voice notes are transcribed by the GPU box before they get here.
 
 ADK sessions carry the conversation history: each browser session maps to an ADK session, the
 Runner assembles prior turns (including past tool calls and results) into context, and new
@@ -21,11 +18,10 @@ from google.genai import types
 
 import tools
 
-MODEL_ID = os.environ.get("MODEL_ID", "gemini-3-flash-preview")
-# When set, the brain is a self-hosted OpenAI-compatible endpoint (vLLM serving
-# Gemma on our Cloud Run GPU) reached through ADK's LiteLlm wrapper. Unset =
-# hosted Gemini via the Cloud account (interim).
+MODEL_ID = os.environ.get("MODEL_ID", "google/gemma-4-31B-it")
 MODEL_API_BASE = os.environ.get("MODEL_API_BASE", "").rstrip("/")
+if not MODEL_API_BASE:
+    raise ValueError("MODEL_API_BASE is not set (URL of the GPU box serving the brain)")
 APP_NAME = "paper-voice-agent"
 
 
@@ -64,7 +60,7 @@ SYSTEM_PROMPT = (
 
 _agent = Agent(
     name="paper_agent",
-    model=_self_hosted_model() if MODEL_API_BASE else MODEL_ID,
+    model=_self_hosted_model(),
     instruction=SYSTEM_PROMPT,
     tools=[tools.search_papers, tools.get_paper],
 )

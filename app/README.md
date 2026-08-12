@@ -2,10 +2,9 @@
 
 The voice-agent front: chat UI, the ADK agent, and thin clients for the GPU
 box ([`../gpu-speech/`](../gpu-speech/)), which serves all three models:
-Whisper (ears), Gemma 4 31B (brain), and Kokoro (mouth). Setting
-`MODEL_API_BASE` points the agent at the self-hosted brain via LiteLLM;
-leaving it unset falls back to hosted Gemini (useful for local dev without
-the GPU).
+Whisper (ears), Gemma 4 31B (brain), and Kokoro (mouth). There are no hosted
+fallbacks; `MODEL_API_BASE` (the brain, via LiteLLM) and `SPEECH_SERVICE_URL`
+are required.
 
 - `server.py` - Flask app: serves the chat page, `POST /chat` (text or audio
   in, NDJSON event stream out), `POST /transcribe` (display transcription),
