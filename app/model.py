@@ -188,6 +188,9 @@ def reply_stream(text: str, session_id: str = "default", user_id: str = "dev"):
         raise ValueError("need text")
     parts = [types.Part.from_text(text=text)]
 
+    # Narrate the pre-model phases so the user never sits on bare dots:
+    # session round-trip, then the model's prompt prefill, then Thinking.
+    yield {"type": "status", "status": "Loading conversation"}
     _ensure_session(user_id, session_id, first_message=text)
 
     try:
@@ -197,6 +200,7 @@ def reply_stream(text: str, session_id: str = "default", user_id: str = "dev"):
     except Exception:  # noqa: BLE001
         run_config = None
 
+    yield {"type": "status", "status": "Waiting for the model"}
     state = _new_stream_state()
     events = _runner.run(
         user_id=user_id,
