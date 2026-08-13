@@ -47,12 +47,10 @@ Two Cloud Run services with one seam between them:
 
 The [Agent Development Kit](https://adk.dev/) carries this app's production needs, and
 every one of them is exercised in this repo. Persistence: conversation history and state
-live in storage we manage, with backends swappable in a line. Self-hosting: ADK points
-the same agent at our own vLLM endpoint with a one-line model config change (the
-[GenAI SDK](https://googleapis.github.io/python-genai/) only speaks to Google's hosted
-APIs). And the road from prototype to production: error recovery with invocation resume,
-native OpenTelemetry tracing, and an LLM-judged eval harness are all ADK features this
-app uses.
+live in storage we manage, with swappable backends. Self-hosting: the agent's model is
+ADK's LiteLLM wrapper pointed at our own vLLM endpoint. And the road from prototype to
+production: error recovery with invocation resume, native OpenTelemetry tracing, and an
+LLM-judged eval harness are all ADK features this app uses.
 
 ## Demo & screenshot
 
