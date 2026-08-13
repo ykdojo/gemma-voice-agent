@@ -46,7 +46,7 @@ recovery.
 
 https://github.com/user-attachments/assets/ccdd3cf1-fd42-4b0a-8827-dd51140f795f
 
-<img src="docs/ui-chat.png" width="380" alt="Chat UI: a multi-turn conversation about the discovery of REM sleep, each reply with a voice playback bar and waveform">
+<img src="docs/ui-chat.png" width="380" alt="Chat UI: a multi-turn conversation about the practical benefits of meditation, each reply with a voice playback bar and waveform">
 
 ## Status
 
