@@ -162,3 +162,24 @@ Every path from the July repro, re-tested:
 All existing quota preferences on the project (GPU no-zonal ×3, GPU zonal, compute
 `GPUS-ALL-REGIONS`, memory) remain granted 0 or capped. `hello-gpu-mem` was restored
 to CPU-only afterward (revision 00009).
+
+## Update (2026-08-11 late): partial thaw - GPU quota granted, memory cap remains
+
+Re-test in a different, GPU-proven project (one that had deployed RTX 6000 Pro
+services all day under a promotional credit billing account) after relinking it
+to this personal billing account:
+
+- `NvidiaRtxPro6000GpuAllocNoZonalRedundancyPerProjectRegion` (us-central1): **granted**
+  (nonzero). The July "GPU quota stuck at 0" wall is gone on this account.
+- `MemAllocPerProjectRegion` (us-central1): **40 GiB**, while the RTX 6000 Pro tier
+  requires 80 GiB per instance. Waking an existing GPU service fails at instance start:
+  `The request failed because the project exceeded its quota limit for
+  run.googleapis.com/mem_allocation recently.`
+- Increase requests via the Quotas API: preferred 200 GiB and preferred 80 GiB both
+  denied instantly ("We cannot grant the preferred quota ... at this moment.
+  '42949672960' was granted.").
+
+Same project, same services, same day: boots fine on the credit billing account,
+memory-blocked on the personal one. The quota follows the billing account, and the
+gate has shifted from the GPU allocation itself to the memory floor the GPU tier
+mandates.
