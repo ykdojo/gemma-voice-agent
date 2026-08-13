@@ -59,23 +59,5 @@ https://github.com/user-attachments/assets/ccdd3cf1-fd42-4b0a-8827-dd51140f795f
 
 <img src="docs/ui-chat.png" width="380" alt="Chat UI: a multi-turn conversation about the practical benefits of meditation, each reply with a voice playback bar and waveform">
 
-## Status
-
-Early days. Building in the open, step by step:
-
-- [x] Step 1: verify a GPU container runs on Cloud Run, see [`hello-gpu/`](hello-gpu/)
-- [x] Web frontend: chat with both text and voice input, waveform playback bar for voice replies
-- [x] Paper-lookup tool (OpenAlex) wired into the agent loop (ADK migration: [#1](https://github.com/delfinadap/gemma-voice-agent/issues/1))
-- [x] Speech-to-text and text-to-speech self-hosted on a Cloud Run GPU: Whisper (vLLM) +
-      Kokoro in [`gpu-speech/`](gpu-speech/), the app's only speech path
-- [x] Interim Gemini brain swapped for **self-hosted Gemma 4 31B**, merged into the same
-      GPU box as the speech models
-- [x] Cold-start UX: wake-on-page-load, wake banner with server-anchored timer,
-      in-stream waking events, retries
-- [x] **Production layer**: persistent conversations (Agent Engine Sessions) with
-      a drawer UI and per-conversation URLs, Google sign-in via IAP, error
-      recovery with invocation resume, Cloud Trace observability, an LLM-judged
-      eval harness, and a GCS cache for rendered speech
-
 Writeup in progress: *From prototype to production: a self-hosted voice agent on
 a single Cloud Run GPU*.
