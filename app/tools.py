@@ -13,6 +13,8 @@ import time
 # contact email; set OPENALEX_MAILTO on the service (kept out of the repo).
 # The placeholder default lands in the flakier anonymous pool.
 MAILTO = os.environ.get("OPENALEX_MAILTO", "paper-search@example.com")
+# Overridable for testing: point at an unreachable host to rehearse failures.
+API_BASE = os.environ.get("OPENALEX_BASE", "https://api.openalex.org")
 UNAVAILABLE = (
     "The paper search service is temporarily unavailable. Tell the user and suggest trying again "
     "in a moment; do not invent papers."
@@ -67,7 +69,7 @@ def search_papers(query: str, limit: int = 5, sort: str = "relevance") -> str:
         "date": "publication_date:desc",
     }
     url = (
-        "https://api.openalex.org/works?search=" + urllib.parse.quote(query)
+        API_BASE + "/works?search=" + urllib.parse.quote(query)
         + f"&per_page={min(int(limit), 10)}&sort={sort_map.get(sort, sort_map['relevance'])}&mailto={MAILTO}"
     )
     try:
@@ -91,10 +93,10 @@ def get_paper(doi_or_openalex_id: str) -> str:
     """Get full details for one paper by DOI (e.g. https://doi.org/10...) or OpenAlex ID (e.g. W2789811475)."""
     ident = doi_or_openalex_id.strip()
     if ident.startswith("W"):
-        url = f"https://api.openalex.org/works/{ident}?mailto={MAILTO}"
+        url = f"{API_BASE}/works/{ident}?mailto={MAILTO}"
     else:
         doi = ident.removeprefix("https://doi.org/")
-        url = f"https://api.openalex.org/works/doi:{urllib.parse.quote(doi)}?mailto={MAILTO}"
+        url = f"{API_BASE}/works/doi:{urllib.parse.quote(doi)}?mailto={MAILTO}"
     try:
         w = _get(url)
     except Exception as e:  # noqa: BLE001 - degrade instead of killing the turn
