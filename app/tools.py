@@ -45,6 +45,20 @@ def _abstract_from_inverted_index(inv: dict | None, limit: int = 400) -> str:
     return text[:limit]
 
 
+def _mark_span_degraded(e: Exception) -> None:
+    """Graceful degradation hides failures from Cloud Trace (the tool span looks
+    successful, just slow). Record the exception on the current span so traces
+    stay honest even when the user gets a polite fallback."""
+    try:
+        from opentelemetry import trace as otel_trace
+
+        span = otel_trace.get_current_span()
+        span.set_attribute("openalex.degraded", True)
+        span.record_exception(e)
+    except Exception:  # noqa: BLE001 - tracing must never break the tool
+        pass
+
+
 def search_papers(query: str, limit: int = 5, sort: str = "relevance") -> str:
     """Search academic papers by keyword. sort: relevance | cites | date."""
     sort_map = {
@@ -58,7 +72,8 @@ def search_papers(query: str, limit: int = 5, sort: str = "relevance") -> str:
     )
     try:
         data = _get(url)
-    except Exception:  # noqa: BLE001 - degrade instead of killing the turn
+    except Exception as e:  # noqa: BLE001 - degrade instead of killing the turn
+        _mark_span_degraded(e)
         return UNAVAILABLE
     lines = []
     for i, work in enumerate(data.get("results", []), 1):
@@ -82,7 +97,8 @@ def get_paper(doi_or_openalex_id: str) -> str:
         url = f"https://api.openalex.org/works/doi:{urllib.parse.quote(doi)}?mailto={MAILTO}"
     try:
         w = _get(url)
-    except Exception:  # noqa: BLE001 - degrade instead of killing the turn
+    except Exception as e:  # noqa: BLE001 - degrade instead of killing the turn
+        _mark_span_degraded(e)
         return UNAVAILABLE
     authors = ", ".join(a["author"]["display_name"] for a in w.get("authorships", [])[:10])
     return (

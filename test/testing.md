@@ -170,6 +170,11 @@ needs full payloads for debugging.
 The Flask request span and the ADK turn span are currently separate traces
 (the runner's thread starts its own context) - known, acceptable for now.
 
+Tool failures are visible two ways even when the agent degrades gracefully:
+each failed OpenAlex attempt logs `openalex attempt N/4 failed: <error>` to
+Cloud Logging, and the execute_tool span carries `openalex.degraded=true`
+plus the recorded exception in Trace Explorer.
+
 ## Layer 8: session-backend benchmark (on demand)
 
 ```sh
