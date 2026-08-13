@@ -23,7 +23,7 @@ def _get(url: str) -> dict:
     """GET with a couple of retries: OpenAlex throws occasional 5xx, and a transient
     failure should not kill the whole agent turn."""
     last_error = None
-    for attempt in range(3):
+    for attempt in range(4):
         try:
             req = urllib.request.Request(
                 url, headers={"User-Agent": f"gemma-voice-agent (mailto:{MAILTO})"}
@@ -32,8 +32,8 @@ def _get(url: str) -> dict:
                 return json.load(resp)
         except Exception as e:  # noqa: BLE001
             last_error = e
-            print(f"openalex attempt {attempt + 1}/3 failed: {e}", flush=True)
-            time.sleep(1.0 * (attempt + 1))
+            print(f"openalex attempt {attempt + 1}/4 failed: {e}", flush=True)
+            time.sleep(2.0 ** attempt)  # 1s, 2s, 4s between the four attempts
     raise last_error
 
 
