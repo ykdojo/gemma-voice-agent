@@ -42,9 +42,6 @@ Two Cloud Run services with one seam between them:
   RTX 6000 Pro: two vLLM processes (Whisper, Gemma 4 31B) plus Kokoro inside the
   FastAPI router that owns the exposed port. It scales to zero; the big weights stream
   from a public GCS bucket at boot.
-- **Tests** ([`test/`](test/), documented in [`test/testing.md`](test/testing.md)) run
-  against any base URL, and the eval harness ([`eval/`](eval/)) judges the agent's
-  behavior itself: tool usage and grounded answers, LLM-scored.
 
 ## Why ADK?
 
