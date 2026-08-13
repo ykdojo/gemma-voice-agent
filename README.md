@@ -44,7 +44,7 @@ recovery.
 
 ## Demo & screenshot
 
-https://github.com/user-attachments/assets/a2d4ba4c-f5f2-439f-b113-7ee945223c18
+https://github.com/user-attachments/assets/ccdd3cf1-fd42-4b0a-8827-dd51140f795f
 
 <img src="docs/ui-chat.png" width="380" alt="Chat UI: a multi-turn conversation about the discovery of REM sleep, each reply with a voice playback bar and waveform">
 
