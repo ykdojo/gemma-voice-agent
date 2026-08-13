@@ -34,8 +34,8 @@ honest status (overlay on load, an in-stream event mid-conversation) while it bo
 
 Two Cloud Run services with one seam between them:
 
-- **The app** ([`app/`](app/)) is a small CPU service: the chat page, the ADK agent
-  loop, and authenticated clients for the GPU box. Voice notes are transcribed once;
+- **The app** ([`app/`](app/)) is a small CPU service: the chat page and the ADK agent
+  loop, and it talks to the private GPU box securely. Voice notes are transcribed once;
   the model only ever sees text. Conversations persist per user, failed turns can be
   resumed, and every turn emits traces.
 - **The GPU box** ([`gpu-speech/`](gpu-speech/)) is where all three models live on one
