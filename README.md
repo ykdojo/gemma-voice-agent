@@ -35,12 +35,9 @@ honest status (overlay on load, an in-stream event mid-conversation) while it bo
 Two Cloud Run services with one seam between them:
 
 - **The app** ([`app/`](app/)) is a small CPU service: the chat page, the ADK agent
-  loop, and thin authenticated clients for the GPU box. A voice note is transcribed
-  once (Whisper), the transcript fills your chat bubble and feeds the brain as text,
-  and the reply is spoken on demand (Kokoro) after the text streams in. Conversations
-  persist in Agent Engine Sessions, keyed per user; a failed turn surfaces an honest
-  error and can be resumed from where it stopped (ADK invocation resume). Every turn
-  emits OpenTelemetry spans to Cloud Trace.
+  loop, and authenticated clients for the GPU box. Voice notes are transcribed once;
+  the model only ever sees text. Conversations persist per user, failed turns can be
+  resumed, and every turn emits traces.
 - **The GPU box** ([`gpu-speech/`](gpu-speech/)) is where all three models live on one
   RTX 6000 Pro: two vLLM processes (Whisper, Gemma 4 31B) plus Kokoro inside the
   FastAPI router that owns the exposed port. It scales to zero; the big weights stream
