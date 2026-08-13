@@ -26,7 +26,8 @@ with a thin CPU service in front for the chat UI and agent loop:
 | Frontend | Basic chat interface: type or talk, replies come back as text and voice |
 
 The GPU box sleeps when idle; the app detects that, wakes it on page load, and shows an
-honest status (overlay on load, an in-stream event mid-conversation) while it boots.
+honest status (a wake banner with elapsed time, an in-stream event mid-conversation) while
+it boots.
 
 ![Architecture](docs/architecture.svg)
 
