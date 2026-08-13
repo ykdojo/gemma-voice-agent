@@ -6,9 +6,13 @@ database, docs, or search engine living in the same infra.
 import urllib.parse
 import urllib.request
 import json
+import os
 import time
 
-MAILTO = "paper-search@example.com"
+# OpenAlex serves its reliable "polite pool" only to requests carrying a real
+# contact email; set OPENALEX_MAILTO on the service (kept out of the repo).
+# The placeholder default lands in the flakier anonymous pool.
+MAILTO = os.environ.get("OPENALEX_MAILTO", "paper-search@example.com")
 UNAVAILABLE = (
     "The paper search service is temporarily unavailable. Tell the user and suggest trying again "
     "in a moment; do not invent papers."
@@ -28,6 +32,7 @@ def _get(url: str) -> dict:
                 return json.load(resp)
         except Exception as e:  # noqa: BLE001
             last_error = e
+            print(f"openalex attempt {attempt + 1}/3 failed: {e}", flush=True)
             time.sleep(1.0 * (attempt + 1))
     raise last_error
 
