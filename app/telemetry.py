@@ -20,12 +20,12 @@ def setup() -> None:
         from google.adk.telemetry.google_cloud import get_gcp_exporters, get_gcp_resource
         from google.adk.telemetry.setup import maybe_set_otel_providers
 
-        credentials, project = google.auth.default()
+        credentials, project = google.auth.default()  # the service's own credentials
         if not project:
             return
-        maybe_set_otel_providers(
+        maybe_set_otel_providers(  # install as the app's OpenTelemetry provider
             otel_hooks_to_setup=[
-                get_gcp_exporters(
+                get_gcp_exporters(  # exports spans to Cloud Trace
                     enable_cloud_tracing=True, google_auth=(credentials, project)
                 )
             ],
