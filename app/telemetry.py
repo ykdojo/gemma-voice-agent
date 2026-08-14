@@ -20,7 +20,7 @@ def setup() -> None:
         from google.adk.telemetry.google_cloud import get_gcp_exporters, get_gcp_resource
         from google.adk.telemetry.setup import maybe_set_otel_providers
 
-        credentials, project = google.auth.default()  # the service's own credentials
+        credentials, project = google.auth.default()  # the identity the service runs as
         if not project:
             return
         maybe_set_otel_providers(  # install as the app's OpenTelemetry provider
